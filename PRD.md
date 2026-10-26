@@ -5,7 +5,7 @@
 | **Status** | Draft v0.1: not started |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-25 |
-| **Repo** | banastas/freeside (not created yet) |
+| **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
 | **Site / updates** | https://freeside.banast.as |
 | **Siblings** | [flatline](https://github.com/banastas/flatline) (CPU, memory, network), straylight (network quality) |
 
