@@ -2,9 +2,9 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.1: not started |
+| **Status** | Draft v0.2: not started |
 | **Owner** | Bill Anastas |
-| **Last updated** | 2026-10-25 |
+| **Last updated** | 2026-10-26 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
 | **Site / updates** | https://freeside.banast.as |
 | **Siblings** | [flatline](https://github.com/banastas/flatline) (CPU, memory, network), straylight (network quality) |
@@ -28,7 +28,7 @@ Finder shows free space but not speed or blockers. Disk Utility and Activity Mon
 1. **One click to "why won't it eject?"** Name the process and the file, and offer a fix.
 2. **Accurate space.** Free space matches Finder (see §9).
 3. **Transfer speed at a glance.** See read/write rates during a card offload or project copy without opening Activity Monitor.
-4. **Negligible footprint.** Event-driven when nothing is happening. With no external drives attached, freeside runs no timers at all (see §8).
+4. **Negligible footprint.** Event-driven when nothing is happening. With no external drives attached and the menu bar not showing space, freeside runs no timers of its own (see §7.3 for the exceptions and §8 for budgets).
 5. **Steady menu bar, flatline look.** Fixed width, monospaced digits, monochrome, phosphor accent in the popover.
 6. **Ships and updates itself.** Developer ID signed, notarized, Sparkle updates from freeside.banast.as.
 
@@ -60,26 +60,33 @@ Finder shows free space but not speed or blockers. Disk Utility and Activity Mon
 | Mount / unmount / rename events | DiskArbitration `DARegisterDiskAppearedCallback`, `DARegisterDiskDisappearedCallback`, `DARegisterDiskDescriptionChangedCallback`, on a `DASession` set to the main queue | `NSWorkspace` mount notifications as a fallback |
 | Name, format, icon | `volumeLocalizedNameKey`, `volumeLocalizedFormatDescriptionKey`, `NSWorkspace.icon(forFile:)` | |
 | Total | `volumeTotalCapacityKey` | |
-| **Available** | `volumeAvailableCapacityForImportantUsageKey` | The number Finder shows. On APFS it includes purgeable space. |
+| **Available** | `volumeAvailableCapacityForImportantUsageKey` | The number Finder shows. On APFS it includes purgeable space. When it is nil (some non-APFS and network volumes), fall back to `volumeAvailableCapacityKey`, then `statfs`. |
 | Available (strict) | `volumeAvailableCapacityKey` | Shown in the popover only when it differs from Available by more than 1 GB |
-| Kind | `volumeIsInternalKey`, `volumeIsEjectableKey`, `volumeIsLocalKey`; DA `kDADiskDescriptionDeviceProtocolKey` (USB, Thunderbolt, PCI-Express, SATA) | Shown as e.g. "USB · APFS" |
-| Disk images | DA `kDADiskDescriptionDeviceModelKey` = "Disk Image" | Grouped separately |
+| Kind | `volumeIsInternalKey`, `volumeIsEjectableKey`, `volumeIsRemovableKey`, `volumeIsLocalKey`; DA `kDADiskDescriptionDeviceProtocolKey` (USB, Thunderbolt, PCI-Express, SATA, Secure Digital), `kDADiskDescriptionMediaRemovableKey` | Shown as e.g. "USB · APFS". See "What counts as external" below. |
+| Disk images | DA `kDADiskDescriptionDeviceModelKey` = "Disk Image" | Identified first and grouped separately |
+
+**What counts as external:** a volume that is not a disk image is external if it is ejectable or removable, whatever its internal flag says. Media in a MacBook Pro's built-in SD card slot may report as internal (`kDADiskDescriptionDeviceInternalKey`), but it must show up as external, get a device card, and be included in Eject All. Check this on a real SD slot in M1.
 
 The default list is external volumes, disk images, and the boot volume ("Macintosh HD"). Everything under `/System/Volumes`, Preboot, Recovery, VM and Time Machine local snapshots stay hidden.
 
-Free space is refreshed on mount, every 30 s while it is visible, and on every I/O tick for a device that is writing. It only changes when something writes.
+Free space is refreshed on mount, every 30 s while it is visible, and on every I/O tick for a device that is writing. It only changes when something writes. Each refresh must bypass `URL`'s resource-value cache (`removeAllCachedResourceValues()` or a fresh `URL`); otherwise it keeps returning the first value read.
 
-**Permissions check (M1):** reading capacity must not trigger the "access files on a removable volume" privacy prompt. If the URL resource keys trigger it, fall back to `statfs` (`f_bavail × f_bsize`) and accept that purgeable space can't be reported.
+**Network volumes** can hang: reading anything from a share whose server has gone away can block for minutes. Their reads run off the main actor with a 2 s timeout. A volume that times out shows its last known value, marked stale, and is tried again on the next refresh. One dead share must never stall the UI or other volumes.
+
+**Permissions check (M1):** reading capacity must not trigger the "access files on a removable volume" or "network volumes" privacy prompts. If the URL resource keys trigger either, fall back to `statfs` (`f_bavail × f_bsize`) and accept that purgeable space can't be reported.
 
 #### Drive I/O
 
 | Value | Source | Notes |
 |---|---|---|
-| Read / write bytes per second | IOKit `IOBlockStorageDriver` → `Statistics` dictionary (`Bytes (Read)`, `Bytes (Write)`), differenced between ticks | The same counters `iostat` reads |
+| Read / write bytes per second | IOKit `IOBlockStorageDriver` → `Statistics` dictionary (`Bytes (Read)`, `Bytes (Write)`), differenced between ticks | The same counters `iostat` reads. Shown in the units chosen in Settings (§6.6): decimal MB/s by default. |
 | Volume → device | `DADiskCreateFromVolumePath` → BSD name → `IOMedia` → walk up to its `IOBlockStorageDriver`. For APFS, follow the synthesized container to its physical store. | I/O is per physical device. Volumes on one device share a rate, so the popover groups them under the device. |
-| Session totals | Sum since the device was attached | |
+| Multi-device volumes | An APFS container with more than one physical store, or an AppleRAID set | Shown as one card for the set, with the members' rates summed and the members listed |
+| Session totals | Bytes moved since freeside first saw the device | The IOKit counters run from attach, so freeside records a baseline when it first sees a device (at attach, or at launch if the device was already attached) |
 
-Device statistics are read only for devices with a visible volume. Network volumes have no block device and show space only.
+Device statistics are read only for devices with a visible volume. Network volumes have no block device and show space only. If a device has no `Statistics` dictionary (some USB bridges), its rate shows "—", not 0.
+
+**Disk images on external drives:** a mounted image's I/O also lands on the device that holds its backing file. The menu bar's combined rate sums physical external devices only, so image traffic isn't counted twice. The image's own card still shows its rate.
 
 #### Eject blockers
 
@@ -88,6 +95,11 @@ Device statistics are read only for devices with a visible volume. Network volum
 | Processes using a volume | libproc `proc_listpidspath(PROC_ALL_PIDS, 0, mountPath, PROC_LISTPIDSPATH_PATH_IS_VOLUME \| PROC_LISTPIDSPATH_EXCLUDE_EVTONLY, …)` | The same mechanism as `lsof +f`. Excluding event-only vnodes skips FSEvents watchers, which don't block unmount. |
 | Which files | Per PID: `proc_pidinfo(PROC_PIDLISTFDS)` → `proc_pidfdinfo(PROC_PIDFDVNODEPATHINFO)` for open files; `proc_pidinfo(PROC_PIDVNODEPATHINFO)` for the working directory; `PROC_PIDREGIONPATHINFO` for memory-mapped files | Shown as "open file", "working directory", or "mapped file" (for example an app running from the drive) |
 | Who it is | `NSRunningApplication(processIdentifier:)`. Otherwise walk parent PIDs (`PROC_PIDTBSDINFO`) to the owning app, so a shell shows as Terminal. | Rows show the app's icon and name, not just a PID |
+| Disk images mounted from the volume | Each mounted image's backing-file path (the `image-path` property on the image's IOKit device; verify in M3), checked against the volume's mount path | A mounted image blocks the eject but shows up only as `diskimages-helper`, if at all. It gets its own row ("Project.sparsebundle is mounted from this drive") with **Eject image**. |
+
+A device scan covers every mounted volume on the device, not just the one the user clicked.
+
+**freeside must never be a holder.** It keeps no file descriptors, working directory or mapped files on a watched volume, and reads icons and resource values without leaving anything open. Its own PID is not filtered out of results, so if it ever does hold a volume the bug is visible; a test checks that it never appears (§7.2).
 
 **Limit:** without root, freeside can only inspect the current user's processes. Root-owned holders (Spotlight's `mds`, Time Machine's `backupd`) are invisible to it. If the scan finds no user processes but the eject still fails, freeside says a system process is holding the drive, names the likely ones, and offers Force Eject.
 
@@ -96,12 +108,19 @@ The scan runs only on demand (§7.3), never on the idle tick.
 ### 6.2 Ejecting
 
 - Each device has an **Eject** button, and the header has **Eject All** for external devices. Ejecting a device unmounts all of its volumes, as Finder does: DiskArbitration `DADiskUnmount` on the whole disk with `kDADiskUnmountOptionWhole`, then `DADiskEject`.
+- Unmounting the whole physical disk must also unmount the volumes in its synthesized APFS container. If `kDADiskUnmountOptionWhole` on the physical disk doesn't reach them, unmount the synthesized container disk first. Verify in M3.
+- **Eject All** ejects devices one at a time and keeps going after a failure. When it's done, the popover lists which devices ejected and opens the Blockers panel for the first one that didn't.
+- Network volumes get an **Unmount** button (`DADiskUnmount` on the disk from `DADiskCreateFromVolumePath`). "Who's using this?" works on them the same way.
 - If the unmount fails as busy (`kDAReturnBusy` from the dissenter), freeside runs the blocker scan and opens the **Blockers** panel:
   - One row per process: icon, name, PID, reason, and the first path (expand to see all).
   - **Quit** for apps, using `NSRunningApplication.terminate()`, so the app can save and ask about unsaved work.
   - **Terminate** for other processes (`SIGTERM`), after a confirmation. `SIGKILL` needs a second confirmation.
   - **Retry**. freeside also retries on its own when the last listed process exits (`DispatchSource.makeProcessSource(eventMask: .exit)`).
   - **Force Eject** (`kDADiskUnmountOptionForce`), with a warning that open files may be lost or damaged.
+- Other dissent statuses get a message on the device card instead of the Blockers panel:
+  - `kDAReturnNotPermitted`: another app refused the unmount. Name it if the dissenter's status string does.
+  - `kDAReturnExclusiveAccess`: a process has the device open exclusively (for example Disk Utility).
+  - Anything else: shown with its status string, and logged for Copy Diagnostics (§6.8).
 - **Who's using this?** is available from any volume's context menu without ejecting.
 
 ### 6.3 Menu bar
@@ -109,12 +128,12 @@ The scan runs only on demand (§7.3), never on the idle tick.
 - A single `NSStatusItem`, monochrome in the menu bar's label color, fixed width.
 - **Display styles**:
   - `icon`: a drive glyph
-  - `space`: free space on one pinned volume, label stacked above value (`RAID` / `1.2T`)
+  - `space`: free space on one pinned volume, label stacked above value (`RAID` / `1.2T`). Long names are truncated to fit the reserved width; the full name is in the tooltip and the VoiceOver label. If the pinned volume isn't mounted, the item shows `icon` until it returns.
   - `activity`: combined read/write rate across external devices, stacked (`R 412M` / `W 380M`), with an optional trace that goes flat when idle
   - `space+activity`
 - **Show activity during transfers** (on by default): in `icon` or `space` style, the item switches to `activity` while a transfer runs (over 1 MB/s for 3 s) and switches back 10 s after it ends. The item's width is reserved for both, so nothing moves.
 - When any visible volume is below the low-space threshold, the glyph gets a `!` mark. No color.
-- Click opens the popover. Right-click or Control-click opens a small menu: Eject All, Open, Settings, Check for Updates, Quit.
+- Click opens the popover. Right-click or Control-click opens a small menu: Eject All, Open, Settings, Copy Diagnostics, Check for Updates, Quit.
 - Optional: hide the item when no external drives are attached.
 - VoiceOver reads a summary such as "2 external drives. RAID, 1.2 terabytes free, writing 380 megabytes per second."
 
@@ -132,12 +151,16 @@ A single scrolling panel about 340 pt wide, built with SwiftUI.
 
 Popover views exist only while the popover is open.
 
+**Empty state:** with no external drives, the header reads "No external drives" and the popover shows the remaining sections (disk images, network volumes, internal disk) as usual.
+
+**Errors** appear inline on the card they belong to, never as modal alerts: an eject refused for a reason other than busy (§6.2), a network volume that timed out (stale value), a device with no I/O statistics, a failed update check (in the footer).
+
 ### 6.5 Notifications (opt-in)
 
 - **Low space**: a volume crosses the low-space threshold. Once per crossing, with hysteresis so it doesn't repeat.
-- **Transfer finished**: write activity on a device drops to near zero after a sustained transfer of at least 1 GB. Useful when you walk away from a card offload.
+- **Transfer finished**: write activity on a device drops to near zero after a sustained transfer of at least 1 GB. Useful when you walk away from a card offload, so it must fire while the display is asleep (§7.3).
 
-Both are off by default. macOS already warns when a drive is unplugged without ejecting, so freeside doesn't.
+Both are off by default. Turning either on asks for notification permission (`UNUserNotificationCenter`); if it's denied, the setting says so and links to System Settings → Notifications. macOS already warns when a drive is unplugged without ejecting, so freeside doesn't.
 
 ### 6.6 Settings
 
@@ -147,9 +170,9 @@ Shown in the popover (an inline settings panel, as in flatline), stored in `User
 |---|---|---|
 | Volumes shown | External, Disk images, Internal, Network (multi-select) | External, Disk images, Internal |
 | Menu bar style | icon, space, activity, space+activity | icon |
-| Pinned volume (for `space`) | any visible volume | first external |
+| Pinned volume (for `space`) | any visible volume | first external, else the boot volume |
 | Show activity during transfers | on / off | on |
-| Space units | decimal (GB, like Finder), binary (GiB) | decimal |
+| Units (space and rates) | decimal (GB, MB/s, like Finder), binary (GiB, MiB/s) | decimal |
 | Low-space threshold | 5 %, 10 %, 20 %, or a fixed amount in GB | 10 % |
 | Notifications | Low space, Transfer finished | off |
 | Hide when no external drives | on / off | off |
@@ -163,6 +186,10 @@ Same setup as flatline:
 
 - **Sparkle 2** via Swift Package Manager. Appcast at `https://freeside.banast.as/appcast.xml`, EdDSA-signed updates, notarized DMGs under `/releases/`, appcast generated by the release script with notes from `CHANGELOG.md`.
 - A small static site in `site/`: landing page, screenshot, download button, requirements, release notes.
+
+### 6.8 Diagnostics
+
+With no telemetry, bug reports depend on what users can send. **Copy Diagnostics** (in the right-click menu and the settings panel) copies a plain-text report to the clipboard: freeside and macOS versions, Mac model, the volume → device map with protocols and formats, recent DiskArbitration errors and dissent statuses, and the last blocker scan's duration and process count. It contains no file paths from blocker scans. It sends nothing; the user pastes it into a GitHub issue.
 
 ## 7. Technical design
 
@@ -205,15 +232,16 @@ freeside/
 └── README.md
 ```
 
-`BlockerScanner` tests open a file on a disk image created in the test (`hdiutil`), then check that the test process shows up with the right path and reason.
+`BlockerScanner` tests open a file on a disk image created in the test (`hdiutil`), then check that the test process shows up with the right path and reason. They also check that freeside's own process never appears after it has listed volumes, refreshed space and loaded icons, and that an image mounted from the test image shows up as a disk-image row. `Ejector` tests use a disk image with several APFS volumes to check that ejecting the device unmounts all of them.
 
 ### 7.3 Doing nothing when nothing happens
 
 - **Volume list**: DiskArbitration callbacks only. No timer.
 - **I/O tick**: a 1 s timer with 10 % leeway, running only while an external device is attached **and** either the popover is open or the menu bar is showing activity. Otherwise a 5 s check reads each device's counters once to detect a transfer starting. With no external devices, there is no timer.
-- **Space**: every 30 s while shown, plus on mount and during writes.
+- **Space**: every 30 s while shown (in the popover, or in the menu bar by the `space` style), plus on mount and during writes. Network volume reads run off the main actor with a timeout (§6.1).
 - **Blocker scan**: only after a failed eject, on "Who's using this?", and every 2 s while the Blockers panel is open. It runs off the main actor. Measure its cost in M3; the target is under 100 ms with 600 processes running.
-- While the screen is locked or the display is asleep, the I/O tick stops. DiskArbitration callbacks keep working.
+- While the screen is locked or the display is asleep, the 1 s tick stops. If a transfer is running, the 5 s check keeps going so **Transfer finished** (§6.5) still fires when the user has walked away; otherwise it stops too, and counters are read once on wake. DiskArbitration callbacks keep working.
+- **Timers with no external drives**: only the 30 s space refresh when the menu bar shows space for the boot or a network volume, and Sparkle's scheduled update check (daily by default). Nothing else.
 
 ### 7.4 Menu bar rendering
 
@@ -233,8 +261,8 @@ Measured on an M-series Mac, popover closed:
 
 | Metric | Budget |
 |---|---|
-| Average CPU, no external drives | ≈ 0 (no timers) |
-| Idle wake-ups, no external drives | 0 |
+| Average CPU, no external drives | ≈ 0 (no timers other than those listed in §7.3) |
+| Idle wake-ups, no external drives, `icon` style | 0, apart from Sparkle's scheduled check |
 | Average CPU, drive attached, idle | < 0.05 % of one core |
 | Average CPU, during a transfer, 1 s tick | < 0.1 % of one core |
 | Resident memory | < 30 MB |
@@ -249,10 +277,25 @@ Checked before each release with Instruments and with a tick profiler: run the b
 |---|---|---|
 | Available space | Finder Get Info "Available" | Exact at Finder's displayed precision |
 | Total capacity | Finder Get Info | Exact |
-| Read / write rates | `iostat -d -w 1 diskN` | ± 5 % over a sustained 30 s copy |
-| Blocker list | `lsof +f -- /Volumes/X`, run as the same user | Same set of PIDs |
+| Read / write rates | `iostat -d -w 1 diskN` | ± 5 % over a sustained 30 s copy, after converting units: iostat's "MB" is MiB (1,048,576 bytes), about 4.9 % larger than a decimal MB |
+| Blocker list | `lsof +f -- /Volumes/X`, run as the same user | Same set of PIDs, plus a row for each disk image mounted from the volume. freeside itself never appears. |
 | Eject | Finder | Succeeds whenever Finder's eject succeeds |
 | Mount / unmount | — | Shown in the popover within 1 s |
+
+### 9.1 Test hardware
+
+Every row above is checked on each of these before 1.0:
+
+| Kind | Why |
+|---|---|
+| USB-C SSD, APFS, several volumes | The common case; APFS container mapping |
+| Thunderbolt enclosure, hardware RAID | One device, high rates |
+| AppleRAID set (two drives) | Multi-device mapping |
+| Built-in SD card slot, exFAT card | Internal flag on removable media |
+| USB card reader, empty and with a card | Device with no media |
+| USB stick, FAT32; spinning drive, HFS+ | Older formats, slow devices |
+| DMG and sparsebundle stored on an external drive | Image grouping, double counting, image-as-blocker |
+| SMB share, including one whose server goes away | Space only, timeouts, stale values |
 
 ## 10. Accessibility and localization
 
@@ -266,15 +309,15 @@ Checked before each release with Instruments and with a tick profiler: run the b
 | # | Milestone | Done when |
 |---|---|---|
 | M0 | Scaffold | XcodeGen project builds an empty menu bar app; `swift test` runs |
-| M1 | Volumes | DA session, volume list and space match §9; privacy-prompt check done |
-| M2 | I/O | Volume → device mapping works for APFS, HFS+, exFAT and disk images; rates match §9 |
-| M3 | Eject + blockers | Eject, blocker scan, Quit / Terminate / Retry / Force Eject; scan cost measured |
+| M1 | Volumes | DA session, volume list and space match §9; SD slot classified as external; privacy-prompt check done for removable and network volumes; network reads time out |
+| M2 | I/O | Volume → device mapping works for APFS (including multi-store), HFS+, exFAT, AppleRAID and disk images; image I/O not counted twice; rates match §9 |
+| M3 | Eject + blockers | Eject (including APFS containers and Eject All with failures), blocker scan with disk-image rows, Quit / Terminate / Retry / Force Eject, messages for other dissent statuses; scan cost measured |
 | M4 | Menu bar | All styles, transfer auto-switch, fixed width |
 | M5 | Popover | Device cards with traces, volume rows, Blockers panel |
-| M6 | Settings + notifications | All §6.6 settings persist; both notifications work |
+| M6 | Settings, notifications, diagnostics | All §6.6 settings persist; both notifications work, Transfer finished with the display asleep; Copy Diagnostics works |
 | M7 | Distribution | `scripts/release.sh` produces a signed, notarized, stapled DMG |
 | M8 | Updates + site | Sparkle wired up; site deployed with appcast; an update tested end to end |
-| M9 | 1.0 | §8 budgets and §9 criteria verified; README screenshots; tagged release |
+| M9 | 1.0 | §8 budgets verified; §9 criteria verified on the §9.1 hardware; README screenshots; tagged release |
 
 ## 12. Decisions
 
@@ -289,8 +332,18 @@ Checked before each release with Instruments and with a tick profiler: run the b
 ## 13. Open questions
 
 1. **Shared code with flatline**: copy `RingBuffer`, `Format`, the menu bar renderer and the release scripts now, or extract a shared Swift package (working name `sprawl`, after the trilogy) that flatline, freeside and straylight all depend on? Copying is faster; a package keeps the three in step.
-2. **Catching Finder's failed ejects**: DiskArbitration's unmount approval callback sees every unmount request, including Finder's. freeside could notice when a volume is still mounted a couple of seconds after a request and offer its Blockers panel. Useful, but it reacts to other apps' actions. Worth it for 1.0?
+2. **Catching Finder's failed ejects**: DiskArbitration's unmount approval callback sees every unmount request, including Finder's. freeside could notice when a volume is still mounted a couple of seconds after a request and offer its Blockers panel. Useful, but it reacts to other apps' actions. A registered approval callback also puts freeside in the path of every unmount on the system, so a hang or crash in it could delay other apps' ejects; only observing (watching for a disappeared callback that never arrives) would be safer, if DiskArbitration exposes enough to do it. Worth it for 1.0?
 3. **Spotlight as the holder**: when Spotlight is likely the cause, link to System Settings → Spotlight so the user can exclude the drive? Turning indexing off directly (`mdutil -i off`) needs admin rights.
 4. **Per-process disk I/O**: `proc_pid_rusage` gives disk bytes for the user's own processes, so the device card could show "Lightroom writing 180 MB/s". Add after 1.0?
 5. **Offload with verification**: copying cards with checksums is the natural next step, but it's a different app. Keep it out of freeside.
 6. **Repo visibility**: private until 1.0, or public from the start?
+
+## 14. Risks
+
+| Risk | Impact | Mitigation |
+|---|---|---|
+| Reading capacity triggers the removable or network volume privacy prompt | A permission prompt from an app that only shows numbers | M1 check; `statfs` fallback (§6.1) |
+| DiskArbitration ejects differently from Finder (APFS containers, other apps' dissent) | Ejects that work in Finder fail in freeside | §6.2 handling; compared against Finder on the §9.1 hardware |
+| A future macOS restricts libproc file-descriptor info, even for the user's own processes | The blocker scan loses file paths or PIDs | Degrade to the PID list, or to "something is holding this drive" with Force Eject. Test each macOS beta. |
+| IOKit `Statistics` keys change or are missing for some devices | Rates disappear or are wrong | Show "—" rather than 0 (§6.1); covered by the §9.1 hardware |
+| A hung network share blocks a thread | Stale UI, or worse, a stuck main actor | Off-main reads with a timeout (§6.1) |
