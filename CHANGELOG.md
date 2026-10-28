@@ -16,3 +16,4 @@
 - Disk images attached with `diskutil image attach` are now named after their file and listed as blockers of the drive holding them (M6)
 - New drives no longer show "no I/O statistics" before their first sample (M6)
 - The first reading after sampling starts is no longer 0, which could hide a transfer that began just then (M6)
+- Release script: builds a Developer ID signed, notarized and stapled DMG (M7)

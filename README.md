@@ -6,7 +6,7 @@ A small menu bar app for Apple Silicon Macs that watches your drives: **free spa
 
 freeside is a sibling to [flatline](https://github.com/banastas/flatline) and follows the same rules: one narrow job, Apple Silicon and macOS 27 only, no root helper, and close to zero cost when nothing is happening.
 
-**Status:** planning. Nothing is built yet. See the [PRD](PRD.md).
+**Status:** in development, not yet released. Milestones M0–M7 of the [PRD](PRD.md) are built: volumes and free space, per-drive I/O, eject with blockers, the menu bar, the popover, settings, notifications, and a notarized DMG. Sparkle updates and the site come next.
 
 ## Features (planned for 1.0)
 
@@ -33,4 +33,15 @@ Not released yet. When it is, downloads will be at **[freeside.banast.as](https:
 
 ## License
 
-MIT. The license file will be added with the first code.
+MIT. See [LICENSE](LICENSE).
+
+## Building
+
+Needs Xcode with the macOS 27 SDK and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
+
+```bash
+xcodegen generate
+open Freeside.xcodeproj
+```
+
+`swift test --package-path Packages/FreesideKit` runs the tests; some create and attach small disk images. `scripts/release.sh` builds a signed, notarized DMG in `dist/` (it needs the Developer ID certificate and notary credentials described at the top of the script; `--skip-notarize` for a signed dry run).
