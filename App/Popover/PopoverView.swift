@@ -26,6 +26,7 @@ struct PopoverView: View {
     let ejector: Ejector
     let preferences: Preferences
     let notifier: Notifier
+    let updater: Updater
     @Bindable var state: PopoverState
     let copyDiagnostics: () -> Void
 
@@ -44,7 +45,7 @@ struct PopoverView: View {
     var body: some View {
         let model = PopoverModel(volumes: volumes.volumes, drives: drives.drives, shown: preferences.volumesShown)
         VStack(alignment: .leading, spacing: 10) {
-            HeaderView(external: model.external, ejector: ejector, state: state)
+            HeaderView(external: model.external, externalFree: model.externalFree, units: preferences.units)
             if let result = state.ejectAllResult {
                 EjectAllSummary(result: result, ejector: ejector) { state.ejectAllResult = nil }
             }
@@ -52,7 +53,7 @@ struct PopoverView: View {
                 ScrollView {
                     Group {
                         if state.showingSettings {
-                            SettingsView(preferences: preferences, volumes: volumes, notifier: notifier, copyDiagnostics: copyDiagnostics)
+                            SettingsView(preferences: preferences, volumes: volumes, notifier: notifier, updater: updater, copyDiagnostics: copyDiagnostics)
                         } else {
                             sections(model)
                         }
@@ -68,7 +69,7 @@ struct PopoverView: View {
                     state.focus = nil
                 }
             }
-            FooterView(state: state)
+            FooterView(state: state, updater: updater, external: model.external, ejector: ejector)
         }
         .padding(14)
         .frame(width: 340)
@@ -136,6 +137,13 @@ struct PopoverModel {
     var `internal`: [Drive] { shown.contains(.internal) ? drives.filter { $0.kind == .internal } : [] }
     var network: [Volume] { shown.contains(.network) ? volumes.filter { $0.kind == .network } : [] }
 
+    /// Free space across every external drive's volumes, for the header;
+    /// nil until one has been read.
+    var externalFree: Int64? {
+        let spaces = external.flatMap(volumes(on:)).compactMap(\.space)
+        return spaces.isEmpty ? nil : spaces.reduce(0) { $0 + $1.available }
+    }
+
     func volumes(on drive: Drive) -> [Volume] {
         let byID = byID
         return drive.volumeIDs.compactMap { byID[$0] }
@@ -148,10 +156,12 @@ struct PopoverModel {
     }
 }
 
+/// As in flatline: the name on the left, two quiet lines on the right,
+/// here the external drives and their free space.
 private struct HeaderView: View {
     let external: [Drive]
-    let ejector: Ejector
-    let state: PopoverState
+    let externalFree: Int64?
+    let units: ByteUnits
     @Environment(\.accent) private var accent
 
     private var count: String {
@@ -162,10 +172,6 @@ private struct HeaderView: View {
         }
     }
 
-    private var ejecting: Bool {
-        ejector.statuses.values.contains { $0.phase == .ejecting }
-    }
-
     var body: some View {
         HStack(spacing: 6) {
             Image(systemName: "externaldrive")
@@ -173,24 +179,15 @@ private struct HeaderView: View {
             Text("freeside")
                 .font(.headline)
             Spacer()
-            Text(count)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            if !external.isEmpty {
-                Button {
-                    let targets = external.map(EjectTarget.init(drive:))
-                    Task {
-                        let result = await ejector.ejectAll(targets)
-                        state.ejectAllResult = result
-                        state.focus = result.failed.first
-                    }
-                } label: {
-                    Label("eject all", systemImage: "eject")
+            VStack(alignment: .trailing, spacing: 1) {
+                Text(count)
+                if let externalFree, !external.isEmpty {
+                    Text("\(Format.size(externalFree, units: units)) free")
                 }
-                .buttonStyle(.borderless)
-                .font(.caption)
-                .disabled(ejecting)
             }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+            .accessibilityElement(children: .combine)
         }
         .foregroundStyle(accent)
     }
@@ -233,8 +230,16 @@ private struct EjectAllSummary: View {
     }
 }
 
+/// Settings, the version (or an available update), Eject All and Quit.
 private struct FooterView: View {
     @Bindable var state: PopoverState
+    let updater: Updater
+    let external: [Drive]
+    let ejector: Ejector
+
+    private var ejecting: Bool {
+        ejector.statuses.values.contains { $0.phase == .ejecting }
+    }
 
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
@@ -248,9 +253,38 @@ private struct FooterView: View {
                 Label(state.showingSettings ? "done" : "settings", systemImage: state.showingSettings ? "chevron.left" : "gearshape")
             }
             .keyboardShortcut(",")
-            Text("v\(version)")
-                .foregroundStyle(.tertiary)
+            if let available = updater.availableVersion {
+                // A check found a newer version; this opens Sparkle's window for it.
+                Button {
+                    updater.checkForUpdates()
+                } label: {
+                    Label("update to \(available)", systemImage: "arrow.down.circle")
+                }
+                .help("freeside \(available) is available")
+            } else {
+                Text("v\(version)")
+                    .foregroundStyle(.tertiary)
+            }
             Spacer()
+            if !external.isEmpty, !state.showingSettings {
+                Button {
+                    let targets = external.map(EjectTarget.init(drive:))
+                    Task {
+                        let result = await ejector.ejectAll(targets)
+                        state.ejectAllResult = result
+                        state.focus = result.failed.first
+                    }
+                } label: {
+                    // Just the symbol when an available update needs the room.
+                    ViewThatFits {
+                        Label("eject all", systemImage: "eject")
+                        Image(systemName: "eject")
+                    }
+                }
+                .disabled(ejecting)
+                .accessibilityLabel("Eject all external drives")
+                .padding(.trailing, 10)
+            }
             Button("quit") { NSApp.terminate(nil) }
                 .keyboardShortcut("q")
         }

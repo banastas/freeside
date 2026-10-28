@@ -14,6 +14,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     private let ejector: Ejector
     private let preferences: Preferences
     private let notifier: Notifier
+    private let updater: Updater
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
     /// Created per opening and released on close, so the popover's views
@@ -42,12 +43,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     private let contentLayer = CALayer()
     private static let horizontalPadding: CGFloat = 4
 
-    init(volumes: VolumeStore, drives: DriveMonitor, ejector: Ejector, preferences: Preferences, notifier: Notifier) {
+    init(volumes: VolumeStore, drives: DriveMonitor, ejector: Ejector, preferences: Preferences, notifier: Notifier, updater: Updater) {
         self.volumes = volumes
         self.drives = drives
         self.ejector = ejector
         self.preferences = preferences
         self.notifier = notifier
+        self.updater = updater
         super.init()
 
         statusItem.autosaveName = "freeside"
@@ -220,7 +222,8 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         dismissStaleStatuses()
 
         let view = PopoverView(
-            volumes: volumes, drives: drives, ejector: ejector, preferences: preferences, notifier: notifier, state: popoverState
+            volumes: volumes, drives: drives, ejector: ejector, preferences: preferences, notifier: notifier, updater: updater,
+            state: popoverState
         ) { [weak self] in
             self?.copyDiagnostics()
         }
@@ -280,6 +283,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         settings.keyEquivalent = ","
         menu.addItem(settings)
         menu.addItem(item("Copy Diagnostics", #selector(copyDiagnosticsFromMenu), ""))
+        menu.addItem(item("Check for Updates…", #selector(checkForUpdates), ""))
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit freeside", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         open(menu)
@@ -309,6 +313,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
 
     @objc private func openSettings() {
         DispatchQueue.main.async { [weak self] in self?.showPopover(settings: true) }
+    }
+
+    @objc private func checkForUpdates() {
+        updater.checkForUpdates()
     }
 
     @objc private func copyDiagnosticsFromMenu() {

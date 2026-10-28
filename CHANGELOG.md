@@ -2,6 +2,27 @@
 
 ## Unreleased
 
+- The popover's header shows the external drive count over their total free space, as flatline's shows the chip and uptime; Eject All moves to the footer
+
+## 0.1.1 (2026-10-28)
+
+- Tests the update from 0.1.0. Nothing else has changed.
+
+## 0.1.0 (2026-10-28)
+
+The first preview release.
+
+- Free space for external drives, disk images, network shares and the internal disk, matching Finder, with a mark when a volume runs low
+- Read and write rates for each physical drive, with a 60-second trace and session totals
+- Eject and Eject All, done the way Finder does; when a drive won't eject, a list of the apps and processes holding it and the files they have open, with Quit, Terminate, Retry and Force Eject
+- "Who's using this?" for any drive, without ejecting
+- Menu bar shows a drive icon, free space on one volume, live rates, or both, and switches to rates during a copy
+- Optional notifications for low space and for a finished copy of 1 GB or more
+- Copy Diagnostics for bug reports, with no file paths in it
+- Signed, notarized and updated automatically
+
+## Development (M0–M8)
+
 - Project scaffold: an empty menu bar app and the FreesideKit package (M0)
 - Volumes: external drives, disk images, network shares and the boot volume, with free space matching Finder; updates within a second of a mount, unmount or rename; network reads time out after 2 s instead of hanging (M1)
 - Drives: each volume mapped to its physical drive (AppleRAID sets to every member), with read and write rates, a 60-second trace and session totals; rates within 0.6 % of iostat; disk images aren't counted twice in the combined rate (M2)
@@ -17,3 +38,5 @@
 - New drives no longer show "no I/O statistics" before their first sample (M6)
 - The first reading after sampling starts is no longer 0, which could hide a transfer that began just then (M6)
 - Release script: builds a Developer ID signed, notarized and stapled DMG (M7)
+- Updates: Sparkle checks freeside.banast.as daily; Check for Updates in the right-click menu and settings, with automatic check and download toggles; the popover's footer shows when an update is available (M8)
+- Site: freeside.banast.as with a download button, a screenshot, requirements and release notes; the release script adds each version to the update feed (M8)

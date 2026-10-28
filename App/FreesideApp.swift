@@ -23,6 +23,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let ejector = Ejector()
     private let preferences = Preferences()
     private lazy var notifier = Notifier(volumes: volumes, drives: drives, preferences: preferences)
+    private var updater: Updater?
     private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -33,7 +34,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         notifier.start()
-        let statusItem = StatusItemController(volumes: volumes, drives: drives, ejector: ejector, preferences: preferences, notifier: notifier)
+        let updater = Updater()
+        self.updater = updater
+        let statusItem = StatusItemController(
+            volumes: volumes, drives: drives, ejector: ejector, preferences: preferences, notifier: notifier, updater: updater
+        )
         self.statusItem = statusItem
         offerLaunchAtLoginOnce()
         // Once the status item has a window for the popover to anchor to.

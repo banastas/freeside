@@ -28,5 +28,13 @@
 	<true/>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2026 Bill Anastas</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://freeside.banast.as/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>/eb+oLmPamFCh29yQUrYYAoRkKCTqAU7g6RD5Gjg478=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

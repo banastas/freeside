@@ -8,6 +8,7 @@ struct SettingsView: View {
     @Bindable var preferences: Preferences
     let volumes: VolumeStore
     let notifier: Notifier
+    let updater: Updater
     let copyDiagnostics: () -> Void
     @Environment(\.accent) private var accent
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
@@ -15,6 +16,8 @@ struct SettingsView: View {
     @State private var copied = false
     /// The fixed amount, kept while a percentage is chosen.
     @State private var gigabytes = 50
+    @State private var autoCheck = false
+    @State private var autoDownload = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -137,12 +140,24 @@ struct SettingsView: View {
                     }
                 }
             }
+
+            Section(title: "UPDATES") {
+                Toggle("check automatically (daily)", isOn: $autoCheck)
+                    .onChange(of: autoCheck) { _, on in updater.automaticallyChecks = on }
+                Toggle("download automatically", isOn: $autoDownload)
+                    .onChange(of: autoDownload) { _, on in updater.automaticallyDownloads = on }
+                    .disabled(!autoCheck)
+                Button("check now") { updater.checkForUpdates() }
+                    .buttonStyle(.borderless)
+            }
         }
         .font(.caption)
         .pickerStyle(.segmented)
         .toggleStyle(.switch)
         .controlSize(.small)
         .onAppear {
+            autoCheck = updater.automaticallyChecks
+            autoDownload = updater.automaticallyDownloads
             if case .gigabytes(let value) = preferences.lowSpaceThreshold { gigabytes = value }
             Task { await notifier.refreshAuthorization() }
         }
