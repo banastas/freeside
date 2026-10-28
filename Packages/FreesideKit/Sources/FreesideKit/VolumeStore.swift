@@ -173,20 +173,28 @@ public final class VolumeStore {
         var source: String
         var type: String
         var isLocal: Bool
+        /// `f_fsid.val[0]`: the `st_dev` of every file on the volume.
+        var device: UInt32 = 0
+        var isHidden = false
     }
 
     /// Visible mounts from the kernel's mount table: the same set as
     /// `FileManager.mountedVolumeURLs(…, options: .skipHiddenVolumes)`, but
     /// `MNT_NOWAIT` guarantees a dead network share can't block the call.
-    nonisolated static func mountedFileSystems() -> [Mount] {
+    /// With `includeHidden`, also the `MNT_DONTBROWSE` mounts.
+    nonisolated static func mountedFileSystems(includeHidden: Bool = false) -> [Mount] {
         var buffer: UnsafeMutablePointer<statfs>?
         let count = getmntinfo_r_np(&buffer, MNT_NOWAIT)
         guard let buffer, count > 0 else { return [] }
         defer { free(buffer) }
         return UnsafeBufferPointer(start: buffer, count: Int(count)).compactMap { fs in
             let path = cString(fs.f_mntonname)
-            guard path == "/" || fs.f_flags & UInt32(MNT_DONTBROWSE) == 0 else { return nil }
-            return Mount(path: path, source: cString(fs.f_mntfromname), type: cString(fs.f_fstypename), isLocal: fs.f_flags & UInt32(MNT_LOCAL) != 0)
+            let hidden = path != "/" && fs.f_flags & UInt32(MNT_DONTBROWSE) != 0
+            guard includeHidden || !hidden else { return nil }
+            return Mount(
+                path: path, source: cString(fs.f_mntfromname), type: cString(fs.f_fstypename),
+                isLocal: fs.f_flags & UInt32(MNT_LOCAL) != 0, device: UInt32(bitPattern: fs.f_fsid.val.0), isHidden: hidden
+            )
         }
     }
 

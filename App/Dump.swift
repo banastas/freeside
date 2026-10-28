@@ -8,12 +8,44 @@ import FreesideKit
 /// - `FREESIDE_DUMP_RATES=<seconds>` samples every second for that long,
 ///   printing each drive's read and write bytes per second, for comparing
 ///   with `iostat`.
+/// - `FREESIDE_INSPECT=<mount path>` opens the Blockers panel for the drive
+///   holding that volume, as "Who's Using This?" does, and prints the scan.
+///   `FREESIDE_EJECT=<mount path>` ejects that drive instead, opening the
+///   panel if the eject fails.
 @MainActor
 enum Dump {
     private static let environment = ProcessInfo.processInfo.environment
 
     static var isRequested: Bool {
         environment["FREESIDE_DUMP_VOLUMES"] != nil || environment["FREESIDE_DUMP_RATES"] != nil
+    }
+
+    static var inspectPath: String? { environment["FREESIDE_INSPECT"] ?? environment["FREESIDE_EJECT"] }
+
+    static func inspect(_ path: String, volumes: VolumeStore, drives: DriveMonitor, ejector: Ejector, show: @escaping (EjectTarget.ID) -> Void) {
+        let eject = environment["FREESIDE_EJECT"] != nil
+        Task {
+            while !drives.drives.contains(where: { drive in drive.volumeIDs.contains { id in volumes.volumes.first { $0.id == id }?.mountPath == path } }) {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            let id = volumes.volumes.first { $0.mountPath == path }!.id
+            let target = EjectTarget(drive: drives.drives.first { $0.volumeIDs.contains(id) }!)
+            if eject {
+                let ejected = await ejector.eject(target)
+                print("ejected:", ejected, ejector.statuses[target.id]?.failure.map(String.init(describing:)) ?? "-")
+                if !ejected { show(target.id) }
+            } else {
+                show(target.id)
+                await ejector.inspect(target)
+            }
+            let report = ejector.statuses[target.id]?.report
+            print("scan:", report?.processCount ?? 0, "processes,", report?.duration ?? .zero)
+            for blocker in report?.blockers ?? [] {
+                print(blocker.pid, blocker.processName, blocker.app?.name ?? "-", blocker.isAppProcess, blocker.uses.map { "\($0.reason.rawValue) \($0.path)" })
+            }
+            for image in report?.images ?? [] { print("image", image.bsdName, image.imagePath) }
+            fflush(stdout)
+        }
     }
 
     static func run(volumes: VolumeStore, drives: DriveMonitor) {

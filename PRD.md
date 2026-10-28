@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.3: building (M2 done; M1's SD slot check pending) |
+| **Status** | Draft v0.3: building (M3 done; M1's SD slot check pending) |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
@@ -93,9 +93,9 @@ Device statistics are read only for devices with a visible volume. Network volum
 | Value | Source | Notes |
 |---|---|---|
 | Processes using a volume | libproc, scanning only the current user's processes: `proc_listallpids` → `PROC_PIDT_SHORTBSDINFO` to skip other users' PIDs → working directory and open vnodes, matched by device ID (`vst_dev` against the volume's `st_dev`) rather than by path prefix | The same information as `lsof +f`. Skip vnodes opened `O_EVTONLY` (`fi_openflags`): FSEvents and kqueue watchers don't block unmount. `proc_listpidspath` gives the same PIDs but took 105–186 ms with ~780 processes; this scan took ~10 ms (spike, §15). |
-| Which files | Per PID: `proc_pidinfo(PROC_PIDLISTFDS)` → `proc_pidfdinfo(PROC_PIDFDVNODEPATHINFO)` for open files; `proc_pidinfo(PROC_PIDVNODEPATHINFO)` for the working directory; the executable path (`proc_pidpath`), then `PROC_PIDREGIONPATHINFO` only if nothing else matched, for memory-mapped files | Shown as "open file", "working directory", or "mapped file" (for example an app running from the drive). Walking memory regions is the slow part, so it runs last. |
-| Who it is | `NSRunningApplication(processIdentifier:)`. Otherwise walk parent PIDs (`PROC_PIDTBSDINFO`) to the owning app, so a shell shows as Terminal. | Rows show the app's icon and name, not just a PID |
-| Disk images mounted from the volume | Each mounted image's backing-file path (the `image-path` property on the image's IOKit device; verify in M3), checked against the volume's mount path | A mounted image blocks the eject but shows up only as `diskimages-helper`, if at all. It gets its own row ("Project.sparsebundle is mounted from this drive") with **Eject image**. |
+| Which files | Per PID: `proc_pidinfo(PROC_PIDLISTFDS)` → `proc_pidfdinfo(PROC_PIDFDVNODEPATHINFO)` for open files; `proc_pidinfo(PROC_PIDVNODEPATHINFO)` for the working directory; the executable path (`proc_pidpath`) checked against the mount paths. Memory-mapped files only in a second pass, run when the first finds no process and no disk image: `PROC_PIDREGIONPATHINFO2` (22, private; `vmmap` and `lsof` use it), which returns only file-backed regions | Shown as "open file", "working directory", or "mapped file" (for example an app running from the drive). Measured in M3 with ~530 processes: first pass 20–30 ms; second pass 170–185 ms. Public `PROC_PIDREGIONPATHINFO` visits every region (~950,000) and took 1.4–2.2 s; `PROC_PIDREGIONPATHINFO3`, which filters by device in the kernel, returned `EINVAL` for every argument tried (2026-10-28). |
+| Who it is | `NSRunningApplication(processIdentifier:)`. Otherwise walk parent PIDs (`PROC_PIDT_SHORTBSDINFO`) to the owning app, so a shell shows as Terminal. | Rows show the app's icon and name, not just a PID. A process that is itself an app or one of its helpers is offered **Quit** (quitting its app); a plain process under an app, such as a shell under Terminal, is offered **Terminate**, so stopping it doesn't quit every Terminal window. |
+| Disk images mounted from the volume | Each attached image's backing-file path (`image-path`, bytes, on the image's `IOHDIXHDDriveOutKernel`; verified in M3), checked against the volume's mount path | A mounted image blocks the eject, and its file is held open by the user's `diskimages-helper`. It gets its own row ("Project.sparsebundle is mounted from this drive") with **Eject image**, and the helper's open-file use of that file is dropped from the process rows: terminating the helper would damage the image. Disk-image drives are named after their file, since every image's device model is "Disk Image". |
 
 A device scan covers every mounted volume on the device, not just the one the user clicked.
 
@@ -112,10 +112,10 @@ The scan runs only on demand (§7.3), never on the idle tick.
   2. `DADiskUnmount` with `kDADiskUnmountOptionWhole` on the physical disk, for any non-APFS partitions.
   3. `DADiskEject` on the physical disk.
 
-  Step 1 is required: unmounting the whole physical disk reports success but leaves the APFS volumes mounted, and the eject then fails as busy (spike, §15).
+  Step 1 is required: unmounting the whole physical disk reports success but leaves the APFS volumes mounted, and the eject then fails as busy (spike, §15). Synthesized disks are found two ways: whole `IOMedia` below each physical disk in the registry (APFS containers), and the whole disk of each mounted volume (an AppleRAID set's disk, which isn't below its members). An AppleRAID set of two images ejects with both members (M3).
 - A failed unmount can leave a device half unmounted: the volumes that weren't busy are already gone (spike, §15). The device card shows which volumes are still mounted, and **Retry** continues from there.
 - **Eject All** ejects devices one at a time and keeps going after a failure. When it's done, the popover lists which devices ejected and opens the Blockers panel for the first one that didn't.
-- Network volumes get an **Unmount** button (`DADiskUnmount` on the disk from `DADiskCreateFromVolumePath`). "Who's using this?" works on them the same way.
+- Network volumes get an **Unmount** button (`DADiskUnmount` on the disk from `DADiskCreateFromVolumePath`). "Who's using this?" works on them the same way. Not yet tested on a real share: unmounting the development Mac's SMB shares would need them reconnected.
 - If the unmount or eject fails as busy, freeside runs the blocker scan and opens the **Blockers** panel:
   - One row per process: icon, name, PID, reason, and the first path (expand to see all).
   - **Quit** for apps, using `NSRunningApplication.terminate()`, so the app can save and ask about unsaved work.
@@ -218,8 +218,8 @@ freeside/
 │       ├── Sources/FreesideKit/
 │       │   ├── VolumeStore.swift     # DA session, mount events, volume list, space
 │       │   ├── DeviceMap.swift       # volume → physical device, incl. APFS containers
-│       │   ├── IOSampler.swift       # IOBlockStorageDriver statistics
-│       │   ├── BlockerScanner.swift  # proc_listpidspath + per-PID detail
+│       │   ├── DriveMonitor.swift    # IOBlockStorageDriver statistics, rates, timer policy
+│       │   ├── BlockerScanner.swift  # user-only libproc scan, disk-image rows
 │       │   ├── Ejector.swift         # unmount, eject, force, retry on exit
 │       │   ├── RingBuffer.swift      # from flatline (see §12)
 │       │   └── Format.swift          # from flatline
@@ -228,6 +228,7 @@ freeside/
 │   ├── FreesideApp.swift
 │   ├── StatusItemController.swift
 │   ├── MenuBarRenderer.swift
+│   ├── Blockers/…           # Blockers panel; moves into the popover in M5
 │   ├── Popover/…
 │   ├── Settings/…
 │   └── Resources/
@@ -245,7 +246,7 @@ freeside/
 - **Volume list**: DiskArbitration callbacks only. No timer.
 - **I/O tick**: a 1 s timer with 10 % leeway, running only while an external device is attached **and** either the popover is open or the menu bar is showing activity. Otherwise a 5 s check reads each device's counters once to detect a transfer starting. With no external devices, there is no timer.
 - **Space**: every 30 s while shown (in the popover, or in the menu bar by the `space` style), plus on mount and during writes. Network volume reads run off the main actor with a timeout (§6.1).
-- **Blocker scan**: only after a failed eject, on "Who's using this?", and every 2 s while the Blockers panel is open. It runs off the main actor. Measure its cost in M3; the target is under 100 ms with 600 processes running.
+- **Blocker scan**: only after a failed eject, on "Who's using this?", and every 2 s while the Blockers panel is open. It runs off the main actor. Measured in M3 with ~530 processes: 20–30 ms when something holds the drive; 170–185 ms when nothing does, because the mapped-file pass runs then (§6.1).
 - While the screen is locked or the display is asleep, the 1 s tick stops. If a transfer is running, the 5 s check keeps going so **Transfer finished** (§6.5) still fires when the user has walked away; otherwise it stops too, and counters are read once on wake. DiskArbitration callbacks keep working.
 - **Timers with no external drives**: only the 30 s space refresh when the menu bar shows space for the boot or a network volume, and Sparkle's scheduled update check (daily by default). Nothing else.
 
@@ -272,7 +273,7 @@ Measured on an M-series Mac, popover closed:
 | Average CPU, drive attached, idle | < 0.05 % of one core |
 | Average CPU, during a transfer, 1 s tick | < 0.1 % of one core |
 | Resident memory | < 30 MB |
-| Blocker scan | < 100 ms with 600 processes; never on the main thread |
+| Blocker scan | < 100 ms with 600 processes; never on the main thread. The mapped-file pass, which runs only when nothing else holds the drive, takes about 180 ms and is outside this budget (§6.1). |
 | Popover open → first frame | < 50 ms |
 
 Checked before each release with Instruments and with a tick profiler: run the binary with `FREESIDE_PROFILE=1`, as with flatline.
@@ -284,7 +285,7 @@ Checked before each release with Instruments and with a tick profiler: run the b
 | Available space | Finder Get Info "Available" for local volumes; `df` for network volumes | Exact at Finder's displayed precision. On SMB shares Finder reported 1.5 GB and 13.7 GB more than `df`, `statfs`, `getattrlist` and the URL keys, which all agree; Finder's figure didn't change on refresh, so it's probably cached, but that isn't confirmed (M1, 2026-10-28). |
 | Total capacity | Finder Get Info | Exact |
 | Read / write rates | `iostat -d -w 1 diskN` | ± 5 % over a sustained 30 s copy, after converting units: iostat's "MB" is MiB (1,048,576 bytes), about 4.9 % larger than a decimal MB. Measured in M2 on a USB SSD at about 820 MB/s: +0.59 % over 24.6 GB; a disk image on that drive +0.54 %, with the combined external rate equal to the drive alone (2026-10-28). |
-| Blocker list | `lsof +f -- /Volumes/X`, run as the same user | Same set of PIDs, plus a row for each disk image mounted from the volume. freeside itself never appears. |
+| Blocker list | `lsof +f -- /Volumes/X`, run as the same user | Same set of PIDs, plus a row for each disk image mounted from the volume, minus `diskimages-helper` holding that image's file. freeside itself never appears. Matched on a test image with a working directory, an open file and an attached image (M3, 2026-10-28). |
 | Eject | Finder | Succeeds whenever Finder's eject succeeds |
 | Mount / unmount | — | Shown in the popover within 1 s |
 
@@ -351,6 +352,7 @@ Every row above is checked on each of these before 1.0:
 | Reading capacity triggers the removable or network volume privacy prompt | A permission prompt from an app that only shows numbers | Checked in the spike (§15): capacity reads, `statfs` and icons do not prompt. Re-check on each macOS beta. |
 | DiskArbitration ejects differently from Finder (APFS containers, other apps' dissent) | Ejects that work in Finder fail in freeside | §6.2 handling; compared against Finder on the §9.1 hardware |
 | A future macOS restricts libproc file-descriptor info, even for the user's own processes | The blocker scan loses file paths or PIDs | Degrade to the PID list, or to "something is holding this drive" with Force Eject. Test each macOS beta. |
+| `PROC_PIDREGIONPATHINFO2` is private and could change | Mapped files (an app running from the drive is still found by its executable path) stop showing | The pass stops at the first failed call and reports nothing; a test covers a mapped file with no descriptor. Test each macOS beta. |
 | IOKit `Statistics` keys change or are missing for some devices | Rates disappear or are wrong | Show "—" rather than 0 (§6.1); covered by the §9.1 hardware |
 | A hung network share blocks a thread | Stale UI, or worse, a stuck main actor | Off-main reads with a timeout (§6.1) |
 

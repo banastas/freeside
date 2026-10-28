@@ -19,6 +19,7 @@ enum FreesideApp {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let volumes = VolumeStore()
     private lazy var drives = DriveMonitor(volumes: volumes)
+    private let ejector = Ejector()
     private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -28,6 +29,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Dump.run(volumes: volumes, drives: drives)
             return
         }
-        statusItem = StatusItemController(volumes: volumes, drives: drives)
+        let statusItem = StatusItemController(volumes: volumes, drives: drives, ejector: ejector)
+        self.statusItem = statusItem
+        if let path = Dump.inspectPath {
+            Dump.inspect(path, volumes: volumes, drives: drives, ejector: ejector, show: statusItem.showBlockers)
+        }
     }
 }

@@ -149,6 +149,11 @@ public final class DriveMonitor {
 
     /// The device model, "2 × model" for a set of identical drives.
     private static func name(for members: [BlockDevice], volumes: [Volume]) -> String {
+        // Every disk image's model is "Disk Image"; its file name says which.
+        if volumes.allSatisfy({ $0.kind == .diskImage }), members.count == 1,
+           let image = BlockerScanner.attachedImages().first(where: { $0.bsdName == members[0].bsdName }) {
+            return image.fileName
+        }
         let models = members.map { model(of: $0.bsdName) ?? volumes.first?.deviceModel ?? $0.bsdName }
         if Set(models).count == 1, models.count > 1 { return "\(models.count) × \(models[0])" }
         return models.joined(separator: " + ")

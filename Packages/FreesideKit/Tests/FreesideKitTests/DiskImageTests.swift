@@ -8,16 +8,43 @@ final class TestDiskImage {
     let name: String
     let file: URL
     var mountPath: String { "/Volumes/\(name)" }
+    /// The image's whole disk once attached: "disk10".
+    private(set) var disk: String?
 
-    init(fileSystem: String = "HFS+", megabytes: Int = 20) throws {
+    /// A sparse image grows as it's written, so an APFS image can be large
+    /// enough for several volumes (about 512 MiB each) without taking the space.
+    init(fileSystem: String = "HFS+", megabytes: Int = 20, sparse: Bool = false, in directory: URL? = nil) throws {
         // ExFAT volume names are limited to 11 characters.
         name = "FSTest\(Int.random(in: 10000...99999))"
-        file = FileManager.default.temporaryDirectory.appending(path: "\(name).dmg")
-        try Self.run("/usr/bin/hdiutil", "create", "-size", "\(megabytes)m", "-fs", fileSystem, "-volname", name, "-ov", "-quiet", file.path)
+        file = (directory ?? FileManager.default.temporaryDirectory).appending(path: "\(name).\(sparse ? "sparseimage" : "dmg")")
+        var arguments = ["create", "-size", "\(megabytes)m", "-fs", fileSystem, "-volname", name, "-ov", "-quiet"]
+        if sparse { arguments += ["-type", "SPARSE"] }
+        try Self.run("/usr/bin/hdiutil", arguments + [file.path])
     }
 
     func attach() throws {
-        try Self.run("/usr/bin/hdiutil", "attach", "-quiet", file.path)
+        let output = try Self.output("/usr/bin/hdiutil", "attach", "-plist", file.path)
+        let plist = try PropertyListSerialization.propertyList(from: output, format: nil) as? [String: Any]
+        let entities = plist?["system-entities"] as? [[String: Any]] ?? []
+        // The first whole disk listed is the image's own; an APFS container comes after it.
+        disk = entities.compactMap { ($0["dev-entry"] as? String)?.replacing("/dev/", with: "") }.first { $0.wholeMatch(of: /disk\d+/) != nil }
+    }
+
+    /// Adds an APFS volume to the image's container; it mounts at /Volumes/<name>.
+    func addAPFSVolume(_ volumeName: String) throws {
+        try Self.run("/usr/sbin/diskutil", "apfs", "addVolume", try container(), "APFS", volumeName)
+    }
+
+    func container() throws -> String {
+        let info = try Self.output("/usr/sbin/diskutil", "info", "-plist", mountPath)
+        let plist = try PropertyListSerialization.propertyList(from: info, format: nil) as? [String: Any]
+        guard let container = plist?["ParentWholeDisk"] as? String else { throw CocoaError(.fileNoSuchFile) }
+        return container
+    }
+
+    var isAttached: Bool {
+        guard let disk else { return false }
+        return FileManager.default.fileExists(atPath: "/dev/\(disk)")
     }
 
     func detach() throws {
@@ -30,13 +57,19 @@ final class TestDiskImage {
 
     deinit {
         // Best effort: the image may already be detached, or renamed.
-        for path in [mountPath] + ((try? FileManager.default.contentsOfDirectory(atPath: "/Volumes")) ?? []).filter { $0.hasPrefix("Renamed\(name.suffix(5))") }.map { "/Volumes/\($0)" } {
+        if isAttached, let disk { try? Self.run("/usr/bin/hdiutil", "detach", "-quiet", "-force", disk) }
+        let renamed = ((try? FileManager.default.contentsOfDirectory(atPath: "/Volumes")) ?? []).filter { $0.hasPrefix("Renamed\(name.suffix(5))") }
+        for path in [mountPath] + renamed.map({ "/Volumes/\($0)" }) {
             if FileManager.default.fileExists(atPath: path) { try? Self.run("/usr/bin/hdiutil", "detach", "-quiet", "-force", path) }
         }
         try? FileManager.default.removeItem(at: file)
     }
 
     static func run(_ tool: String, _ arguments: String...) throws {
+        try run(tool, arguments)
+    }
+
+    static func run(_ tool: String, _ arguments: [String]) throws {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: tool)
         process.arguments = arguments
@@ -46,6 +79,21 @@ final class TestDiskImage {
         guard process.terminationStatus == 0 else {
             throw CocoaError(.executableLoad, userInfo: [NSLocalizedDescriptionKey: "\(tool) \(arguments.joined(separator: " ")) exited \(process.terminationStatus)"])
         }
+    }
+
+    static func output(_ tool: String, _ arguments: String...) throws -> Data {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: tool)
+        process.arguments = arguments
+        process.standardOutput = pipe
+        try process.run()
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw CocoaError(.executableLoad, userInfo: [NSLocalizedDescriptionKey: "\(tool) \(arguments.joined(separator: " ")) exited \(process.terminationStatus)"])
+        }
+        return data
     }
 }
 
