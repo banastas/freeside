@@ -18,14 +18,16 @@ enum FreesideApp {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let volumes = VolumeStore()
+    private lazy var drives = DriveMonitor(volumes: volumes)
     private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         volumes.start()
-        if VolumeDump.isRequested {
-            VolumeDump.run(volumes)
+        drives.start()
+        if Dump.isRequested {
+            Dump.run(volumes: volumes, drives: drives)
             return
         }
-        statusItem = StatusItemController(volumes: volumes)
+        statusItem = StatusItemController(volumes: volumes, drives: drives)
     }
 }

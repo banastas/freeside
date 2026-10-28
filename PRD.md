@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.3: building (M1 done except the SD slot check) |
+| **Status** | Draft v0.3: building (M2 done; M1's SD slot check pending) |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
@@ -80,8 +80,8 @@ Free space is refreshed on mount, every 30 s while it is visible, and on every I
 | Value | Source | Notes |
 |---|---|---|
 | Read / write bytes per second | IOKit `IOBlockStorageDriver` → `Statistics` dictionary (`Bytes (Read)`, `Bytes (Write)`), differenced between ticks | The same counters `iostat` reads. Shown in the units chosen in Settings (§6.6): decimal MB/s by default. |
-| Volume → device | `DADiskCreateFromVolumePath` → BSD name → `IOMedia` → walk up to its `IOBlockStorageDriver`. For APFS, follow the synthesized container to its physical store. | I/O is per physical device. Volumes on one device share a rate, so the popover groups them under the device. |
-| Multi-device volumes | An APFS container with more than one physical store, or an AppleRAID set | Shown as one card for the set, with the members' rates summed and the members listed |
+| Volume → device | The volume's BSD name (from the mount table) → its `IOMedia` → walk every parent in the IOService plane to the `IOBlockStorageDriver`s above it, remembering the last whole-disk `IOMedia` passed. For APFS the walk goes through the container to the physical disk on its own. | I/O is per physical device. Volumes on one device share a rate, so the popover groups them under the device. The walk runs only when the volume list changes; each tick reads only the drivers' `Statistics`. |
+| Multi-device volumes | An AppleRAID set: the walk finds one driver per member | Shown as one card for the set, with the members' rates summed and the members listed. Multi-store APFS (Fusion) can't be created on macOS 27 ("Fusion drives are deprecated"), so it isn't tested; the walk would handle it the same way. |
 | Session totals | Bytes moved since freeside first saw the device | The IOKit counters run from attach, so freeside records a baseline when it first sees a device (at attach, or at launch if the device was already attached) |
 
 Device statistics are read only for devices with a visible volume. Network volumes have no block device and show space only. If a device has no `Statistics` dictionary (some USB bridges), its rate shows "—", not 0.
@@ -283,7 +283,7 @@ Checked before each release with Instruments and with a tick profiler: run the b
 |---|---|---|
 | Available space | Finder Get Info "Available" for local volumes; `df` for network volumes | Exact at Finder's displayed precision. On SMB shares Finder reported 1.5 GB and 13.7 GB more than `df`, `statfs`, `getattrlist` and the URL keys, which all agree; Finder's figure didn't change on refresh, so it's probably cached, but that isn't confirmed (M1, 2026-10-28). |
 | Total capacity | Finder Get Info | Exact |
-| Read / write rates | `iostat -d -w 1 diskN` | ± 5 % over a sustained 30 s copy, after converting units: iostat's "MB" is MiB (1,048,576 bytes), about 4.9 % larger than a decimal MB |
+| Read / write rates | `iostat -d -w 1 diskN` | ± 5 % over a sustained 30 s copy, after converting units: iostat's "MB" is MiB (1,048,576 bytes), about 4.9 % larger than a decimal MB. Measured in M2 on a USB SSD at about 820 MB/s: +0.59 % over 24.6 GB; a disk image on that drive +0.54 %, with the combined external rate equal to the drive alone (2026-10-28). |
 | Blocker list | `lsof +f -- /Volumes/X`, run as the same user | Same set of PIDs, plus a row for each disk image mounted from the volume. freeside itself never appears. |
 | Eject | Finder | Succeeds whenever Finder's eject succeeds |
 | Mount / unmount | — | Shown in the popover within 1 s |
@@ -316,7 +316,7 @@ Every row above is checked on each of these before 1.0:
 |---|---|---|
 | M0 | Scaffold | XcodeGen project builds an empty menu bar app; `swift test` runs |
 | M1 | Volumes | DA session, volume list and space match §9; SD slot classified as external (on a MacBook Pro); network reads time out |
-| M2 | I/O | Volume → device mapping works for APFS (including multi-store), HFS+, exFAT, AppleRAID and disk images; image I/O not counted twice; rates match §9 |
+| M2 | I/O | Volume → device mapping works for APFS, HFS+, exFAT, AppleRAID and disk images; image I/O not counted twice; rates match §9 |
 | M3 | Eject + blockers | Eject (including APFS containers and Eject All with failures), blocker scan with disk-image rows, Quit / Terminate / Retry / Force Eject, messages for other dissent statuses; scan cost measured |
 | M4 | Menu bar | All styles, transfer auto-switch, fixed width |
 | M5 | Popover | Device cards with traces, volume rows, Blockers panel |

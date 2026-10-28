@@ -12,6 +12,7 @@ let package = Package(
             name: "FreesideKit",
             linkerSettings: [
                 .linkedFramework("DiskArbitration"),
+                .linkedFramework("IOKit"),
             ]
         ),
         .testTarget(name: "FreesideKitTests", dependencies: ["FreesideKit"]),

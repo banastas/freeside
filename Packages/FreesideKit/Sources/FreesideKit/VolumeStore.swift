@@ -90,13 +90,22 @@ public final class VolumeStore {
         refreshTimer = timer
     }
 
-    private func finishRead(id: Volume.ID, path: String, space: Space?) {
+    private func finishRead(id: Volume.ID, path: String, space: Space?, attempt: Int = 1) {
         reading.remove(id)
         guard let index = volumes.firstIndex(where: { $0.id == id && $0.mountPath == path }) else { return }
         if let space {
             volumes[index].space = space
         } else if volumes[index].space?.isStale == false {
             volumes[index].space?.isStale = true
+        } else if volumes[index].space == nil, attempt < 3 {
+            // A volume that has never been read would otherwise wait for the
+            // next refresh; try again shortly, a couple of times.
+            Task {
+                try? await Task.sleep(for: .seconds(attempt))
+                guard reading.insert(id).inserted else { return }
+                let space = await reader.read(path: path)
+                finishRead(id: id, path: path, space: space, attempt: attempt + 1)
+            }
         }
     }
 
