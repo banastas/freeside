@@ -1,4 +1,5 @@
 import AppKit
+import FreesideKit
 
 @main
 @MainActor
@@ -16,9 +17,15 @@ enum FreesideApp {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let volumes = VolumeStore()
     private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        statusItem = StatusItemController()
+        volumes.start()
+        if VolumeDump.isRequested {
+            VolumeDump.run(volumes)
+            return
+        }
+        statusItem = StatusItemController(volumes: volumes)
     }
 }

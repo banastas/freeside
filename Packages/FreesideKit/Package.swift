@@ -8,7 +8,12 @@ let package = Package(
         .library(name: "FreesideKit", targets: ["FreesideKit"]),
     ],
     targets: [
-        .target(name: "FreesideKit"),
+        .target(
+            name: "FreesideKit",
+            linkerSettings: [
+                .linkedFramework("DiskArbitration"),
+            ]
+        ),
         .testTarget(name: "FreesideKitTests", dependencies: ["FreesideKit"]),
     ]
 )

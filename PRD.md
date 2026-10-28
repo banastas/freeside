@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.3: M0 in progress |
+| **Status** | Draft v0.3: building (M1 done except the SD slot check) |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
@@ -56,9 +56,9 @@ Finder shows free space but not speed or blockers. Disk Utility and Activity Mon
 
 | Value | Source | Notes |
 |---|---|---|
-| Mounted volumes | `FileManager.mountedVolumeURLs(includingResourceValuesForKeys:options: .skipHiddenVolumes)` | Rebuilt only on mount, unmount and rename events. Never polled. |
+| Mounted volumes | The kernel mount table (`getmntinfo_r_np` with `MNT_NOWAIT`), skipping `MNT_DONTBROWSE` mounts other than `/` | Rebuilt only on mount, unmount and rename events. Never polled. The same set as `FileManager.mountedVolumeURLs(…, .skipHiddenVolumes)` (a test checks this), but `MNT_NOWAIT` guarantees a dead share can't block it. |
 | Mount / unmount / rename events | DiskArbitration `DARegisterDiskAppearedCallback`, `DARegisterDiskDisappearedCallback`, `DARegisterDiskDescriptionChangedCallback`, on a `DASession` set to the main queue | `NSWorkspace` mount notifications as a fallback |
-| Name, format, icon | `volumeLocalizedNameKey`, `volumeLocalizedFormatDescriptionKey`, `NSWorkspace.icon(forFile:)` | |
+| Name, format, icon | DA `kDADiskDescriptionVolumeNameKey` (the mount point's last component for network volumes); a short format name from the mount table's file system type ("APFS", "HFS+", "ExFAT", "SMB"); `NSWorkspace.icon(forFile:)` | Nothing here touches the file system, so listing never blocks on a dead share |
 | Total | `volumeTotalCapacityKey` | |
 | **Available** | `volumeAvailableCapacityForImportantUsageKey` | The number Finder shows. On APFS it includes purgeable space. When it is nil or 0, fall back to `volumeAvailableCapacityKey`, then `statfs`. SMB shares return 0, not nil (spike, §15). |
 | Available (strict) | `volumeAvailableCapacityKey` | Shown in the popover only when it differs from Available by more than 1 GB |
@@ -281,7 +281,7 @@ Checked before each release with Instruments and with a tick profiler: run the b
 
 | Metric | Reference | Tolerance |
 |---|---|---|
-| Available space | Finder Get Info "Available" | Exact at Finder's displayed precision |
+| Available space | Finder Get Info "Available" for local volumes; `df` for network volumes | Exact at Finder's displayed precision. On SMB shares Finder reported 1.5 GB and 13.7 GB more than `df`, `statfs`, `getattrlist` and the URL keys, which all agree; Finder's figure didn't change on refresh, so it's probably cached, but that isn't confirmed (M1, 2026-10-28). |
 | Total capacity | Finder Get Info | Exact |
 | Read / write rates | `iostat -d -w 1 diskN` | ± 5 % over a sustained 30 s copy, after converting units: iostat's "MB" is MiB (1,048,576 bytes), about 4.9 % larger than a decimal MB |
 | Blocker list | `lsof +f -- /Volumes/X`, run as the same user | Same set of PIDs, plus a row for each disk image mounted from the volume. freeside itself never appears. |
