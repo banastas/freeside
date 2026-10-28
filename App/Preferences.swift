@@ -33,8 +33,8 @@ enum Accent: String, CaseIterable, Identifiable {
     }
 }
 
-/// User settings, persisted to `UserDefaults`. The settings panel comes in
-/// M6; until then the menu bar ones are in the right-click menu.
+/// User settings, persisted to `UserDefaults` and shown in the popover's
+/// settings panel.
 @MainActor
 @Observable
 final class Preferences {
@@ -49,6 +49,8 @@ final class Preferences {
     var volumesShown: Set<VolumeKind> { didSet { save(volumesShown.map(\.rawValue).sorted(), "volumesShown") } }
     var hideWhenNoExternal: Bool { didSet { save(hideWhenNoExternal, "hideWhenNoExternal") } }
     var accent: Accent { didSet { save(accent.rawValue, "accent") } }
+    var notifyLowSpace: Bool { didSet { save(notifyLowSpace, "notifyLowSpace") } }
+    var notifyTransferFinished: Bool { didSet { save(notifyTransferFinished, "notifyTransferFinished") } }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -68,12 +70,30 @@ final class Preferences {
         volumesShown = Set((defaults.stringArray(forKey: "volumesShown") ?? []).compactMap(VolumeKind.init(rawValue:)))
         hideWhenNoExternal = defaults.bool(forKey: "hideWhenNoExternal")
         accent = Self.load(defaults, "accent", .phosphor)
+        notifyLowSpace = defaults.bool(forKey: "notifyLowSpace")
+        notifyTransferFinished = defaults.bool(forKey: "notifyTransferFinished")
     }
 
     /// The pinned volume if it's mounted, else nil; the default when none is chosen.
     func pinnedVolume(in volumes: [Volume]) -> Volume? {
         guard let pinnedVolumeID else { return Volume.defaultPinned(in: volumes) }
         return volumes.first { $0.id == pinnedVolumeID }
+    }
+
+    /// For Copy Diagnostics; names no volume.
+    var summary: [String] {
+        [
+            "style \(menuBarStyle.rawValue)",
+            "pinned \(pinnedVolumeID == nil ? "automatic" : "chosen")",
+            "activity during transfers \(activityDuringTransfers ? "on" : "off")",
+            "trace \(activityTrace ? "on" : "off")",
+            "units \(units.rawValue)",
+            "low space \(lowSpaceThreshold.rawValue)",
+            "shown \(VolumeKind.allCases.filter(volumesShown.contains).map(\.rawValue).joined(separator: "+"))",
+            "hide without external \(hideWhenNoExternal ? "on" : "off")",
+            "notify low space \(notifyLowSpace ? "on" : "off")",
+            "notify transfer finished \(notifyTransferFinished ? "on" : "off")",
+        ]
     }
 
     private func save(_ value: (some Sendable)?, _ key: String) {

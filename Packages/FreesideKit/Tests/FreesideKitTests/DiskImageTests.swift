@@ -22,6 +22,15 @@ final class TestDiskImage {
         try Self.run("/usr/bin/hdiutil", arguments + [file.path])
     }
 
+    /// `diskutil image attach` uses DiskImages2, `hdiutil attach` the older
+    /// IOHDIX driver; freeside has to handle both.
+    func attachWithDiskutil() throws {
+        try Self.run("/usr/sbin/diskutil", "image", "attach", file.path)
+        let info = try Self.output("/usr/sbin/diskutil", "info", "-plist", mountPath)
+        let plist = try PropertyListSerialization.propertyList(from: info, format: nil) as? [String: Any]
+        disk = plist?["ParentWholeDisk"] as? String
+    }
+
     func attach() throws {
         let output = try Self.output("/usr/bin/hdiutil", "attach", "-plist", file.path)
         let plist = try PropertyListSerialization.propertyList(from: output, format: nil) as? [String: Any]

@@ -19,6 +19,7 @@ public struct Drive: Identifiable, Sendable {
     public var writeTrace = RingBuffer<Double>(capacity: DriveMonitor.traceLength, fill: 0)
     /// Bytes moved since freeside first saw the drive.
     public var session = IOCounters(bytesRead: 0, bytesWritten: 0)
+    public var writeSession = WriteSession()
 }
 
 /// Samples I/O counters for every drive with a visible volume.
@@ -69,6 +70,8 @@ public final class DriveMonitor {
     @ObservationIgnored private var started = false
     /// Called after every sample, for redrawing the menu bar.
     @ObservationIgnored public var onSample: (() -> Void)?
+    /// An external drive finished a write of at least 1 GB.
+    @ObservationIgnored public var onTransferFinished: ((Drive, FinishedTransfer) -> Void)?
 
     public init(volumes: VolumeStore) {
         self.volumes = volumes
@@ -159,6 +162,13 @@ public final class DriveMonitor {
                 lastCounters[driver.device.driverID] = counters
             }
         }
+        // Rates read 0 until the first sample, or nil if a member has no
+        // statistics, so a new drive doesn't look like one without them.
+        for index in next.indices where previous[next[index].id] == nil {
+            let readable = next[index].members.allSatisfy { baselines[$0.driverID] != nil }
+            next[index].readRate = readable ? 0 : nil
+            next[index].writeRate = readable ? 0 : nil
+        }
         drives = next
         updateTimer()
     }
@@ -199,6 +209,7 @@ public final class DriveMonitor {
         }
 
         var externalRead = 0.0, externalWrite = 0.0
+        var finishedTransfers: [(Drive, FinishedTransfer)] = []
         for index in drives.indices {
             var drive = drives[index]
             let ids = drive.members.map(\.driverID)
@@ -217,6 +228,10 @@ public final class DriveMonitor {
             let (read, write) = Self.rates(delta, over: elapsed)
             drive.readRate = read
             drive.writeRate = write
+            if let finished = drive.writeSession.update(writeRate: write, written: delta.bytesWritten, at: now),
+               drive.kind == .external {
+                finishedTransfers.append((drive, finished))
+            }
             // A 5 s sample stands for five seconds of the trace.
             for _ in 0..<max(1, Int(elapsed.rounded())) where elapsed > 0 {
                 drive.readTrace.append(read)
@@ -238,6 +253,16 @@ public final class DriveMonitor {
         externalWriteRate = externalWrite
         updateTimer()
         onSample?()
+        for (drive, finished) in finishedTransfers { onTransferFinished?(drive, finished) }
+    }
+
+    /// Reads the counters without reporting rates, so the next sample has
+    /// something to difference against.
+    private func rebaseline() {
+        for (id, driver) in drivers {
+            if let counters = driver.counters() { lastCounters[id] = counters }
+        }
+        lastSample = .now
     }
 
     /// Bytes per second; zero before there are two samples.
@@ -249,7 +274,9 @@ public final class DriveMonitor {
     // MARK: - Timer
 
     /// 1 s while detailed, 5 s otherwise, none without external drives or
-    /// while the display sleeps with no transfer running.
+    /// while the display sleeps with no transfer running. `transferring`
+    /// includes a write that hasn't been seen to end yet, so Transfer
+    /// finished fires with the display asleep.
     nonisolated static func interval(hasExternal: Bool, detailed: Bool, displayAsleep: Bool, transferring: Bool) -> Int? {
         guard hasExternal else { return nil }
         if displayAsleep { return transferring ? 5 : nil }
@@ -261,12 +288,13 @@ public final class DriveMonitor {
             hasExternal: drives.contains { $0.kind == .external },
             detailed: detailed,
             displayAsleep: displayAsleep,
-            transferring: isTransferring
+            transferring: isTransferring || drives.contains { $0.kind == .external && $0.writeSession.isOpen }
         ))
     }
 
     private func setTimer(_ seconds: Int?) {
         guard seconds != timerInterval else { return }
+        let wasStopped = timerInterval == nil
         timer?.cancel()
         timer = nil
         timerInterval = seconds
@@ -274,6 +302,10 @@ public final class DriveMonitor {
             lastSample = nil
             return
         }
+        // Without this, the first tick has nothing to difference against
+        // and reads 0, so a transfer that starts right after the timer does
+        // goes unseen for a tick (and, if the display then sleeps, for good).
+        if wasStopped, lastSample == nil { rebaseline() }
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + .seconds(seconds), repeating: .seconds(seconds), leeway: .milliseconds(seconds * 100))
         timer.setEventHandler { [weak self] in

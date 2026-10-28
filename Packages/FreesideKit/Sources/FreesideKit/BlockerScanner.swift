@@ -229,18 +229,26 @@ public enum BlockerScanner {
     // MARK: - Disk images
 
     /// Every attached disk image, with its backing file and whole disk.
+    /// Two drivers serve images: `hdiutil attach` still uses the older
+    /// IOHDIX one (`image-path`, bytes), while `diskutil image attach` uses
+    /// DiskImages2's `AppleDiskImageDevice` (`DiskImageURL`, a file URL string).
     static func attachedImages() -> [ImageBlocker] {
+        images(of: "IOHDIXHDDriveOutKernel") { drive in
+            (DeviceMap.property(drive, "image-path") as? Data).map { String(decoding: $0.prefix { $0 != 0 }, as: UTF8.self) }
+        } + images(of: "AppleDiskImageDevice") { drive in
+            (DeviceMap.property(drive, "DiskImageURL") as? String).flatMap(URL.init(string:)).map(\.path)
+        }
+    }
+
+    private static func images(of driverClass: String, path: (io_registry_entry_t) -> String?) -> [ImageBlocker] {
         var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOHDIXHDDriveOutKernel"), &iterator) == KERN_SUCCESS else { return [] }
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching(driverClass), &iterator) == KERN_SUCCESS else { return [] }
         defer { IOObjectRelease(iterator) }
         var images: [ImageBlocker] = []
         while case let drive = IOIteratorNext(iterator), drive != 0 {
             defer { IOObjectRelease(drive) }
-            guard let data = DeviceMap.property(drive, "image-path") as? Data,
-                  let bsdName = wholeDisk(under: drive)
-            else { continue }
-            let path = String(decoding: data.prefix { $0 != 0 }, as: UTF8.self)
-            images.append(ImageBlocker(imagePath: path, bsdName: bsdName))
+            guard let imagePath = path(drive), let bsdName = wholeDisk(under: drive) else { continue }
+            images.append(ImageBlocker(imagePath: imagePath, bsdName: bsdName))
         }
         return images
     }

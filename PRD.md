@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.3: building (M5 done; M1's SD slot check pending) |
+| **Status** | Draft v0.3: building (M6 built; Transfer finished fully asleep and M1's SD slot check pending) |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
@@ -95,7 +95,7 @@ Device statistics are read only for devices with a visible volume. Network volum
 | Processes using a volume | libproc, scanning only the current user's processes: `proc_listallpids` → `PROC_PIDT_SHORTBSDINFO` to skip other users' PIDs → working directory and open vnodes, matched by device ID (`vst_dev` against the volume's `st_dev`) rather than by path prefix | The same information as `lsof +f`. Skip vnodes opened `O_EVTONLY` (`fi_openflags`): FSEvents and kqueue watchers don't block unmount. `proc_listpidspath` gives the same PIDs but took 105–186 ms with ~780 processes; this scan took ~10 ms (spike, §15). |
 | Which files | Per PID: `proc_pidinfo(PROC_PIDLISTFDS)` → `proc_pidfdinfo(PROC_PIDFDVNODEPATHINFO)` for open files; `proc_pidinfo(PROC_PIDVNODEPATHINFO)` for the working directory; the executable path (`proc_pidpath`) checked against the mount paths. Memory-mapped files only in a second pass, run when the first finds no process and no disk image: `PROC_PIDREGIONPATHINFO2` (22, private; `vmmap` and `lsof` use it), which returns only file-backed regions | Shown as "open file", "working directory", or "mapped file" (for example an app running from the drive). Measured in M3 with ~530 processes: first pass 20–30 ms; second pass 170–185 ms. Public `PROC_PIDREGIONPATHINFO` visits every region (~950,000) and took 1.4–2.2 s; `PROC_PIDREGIONPATHINFO3`, which filters by device in the kernel, returned `EINVAL` for every argument tried (2026-10-28). |
 | Who it is | `NSRunningApplication(processIdentifier:)`. Otherwise walk parent PIDs (`PROC_PIDT_SHORTBSDINFO`) to the owning app, so a shell shows as Terminal. | Rows show the app's icon and name, not just a PID. A process that is itself an app or one of its helpers is offered **Quit** (quitting its app); a plain process under an app, such as a shell under Terminal, is offered **Terminate**, so stopping it doesn't quit every Terminal window. |
-| Disk images mounted from the volume | Each attached image's backing-file path (`image-path`, bytes, on the image's `IOHDIXHDDriveOutKernel`; verified in M3), checked against the volume's mount path | A mounted image blocks the eject, and its file is held open by the user's `diskimages-helper`. It gets its own row ("Project.sparsebundle is mounted from this drive") with **Eject image**, and the helper's open-file use of that file is dropped from the process rows: terminating the helper would damage the image. Disk-image drives are named after their file, since every image's device model is "Disk Image". |
+| Disk images mounted from the volume | Each attached image's backing-file path, checked against the volume's mount path. Two drivers serve images: `hdiutil attach` uses the older `IOHDIXHDDriveOutKernel` (`image-path`, bytes; verified in M3), and `diskutil image attach` uses DiskImages2's `AppleDiskImageDevice` (`DiskImageURL`, a file URL; found in M6, when `.dmg` files attached that way were missed). Which one Finder uses isn't checked, so both are read. | A mounted image blocks the eject, and its file is held open by the user's `diskimages-helper` (IOHDIX) or by `diskimagesiod`, which runs as a system user and so never shows up (DiskImages2). It gets its own row ("Project.sparsebundle is mounted from this drive") with **Eject image**, and the helper's open-file use of that file is dropped from the process rows: terminating the helper would damage the image. Disk-image drives are named after their file, since every image's device model is "Disk Image". |
 
 A device scan covers every mounted volume on the device, not just the one the user clicked.
 
@@ -139,7 +139,7 @@ The scan runs only on demand (§7.3), never on the idle tick.
   - `space+activity`
 - **Show activity during transfers** (on by default): in `icon` or `space` style, the item switches to `activity` while a transfer runs (over 1 MB/s for 3 s) and switches back 10 s after it ends. The item's width is reserved for both, so nothing moves: with the trace on, `icon` reserves about 68 pt. As soon as a 5 s check sees more than 1 MB/s, sampling goes to every second to confirm it, so a transfer shows within about 3–8 s. Any I/O over the threshold counts, including Spotlight reading a large file just copied (M4).
 - When any visible volume is below the low-space threshold, the glyph gets a `!` mark (`externaldrive.badge.exclamationmark`). No color. In `space` style, which has no glyph, the caption gets a `!` when the pinned volume is low (`RAID!`).
-- Click opens the popover. Right-click or Control-click opens a small menu: Eject All, Open, Settings, Copy Diagnostics, Check for Updates, Quit. Until the settings panel (M6), the menu bar settings are a submenu here; Copy Diagnostics and Check for Updates arrive in M6 and M8.
+- Click opens the popover. Right-click or Control-click opens a small menu: Eject All, Open, Settings, Copy Diagnostics, Check for Updates, Quit. Settings opens the popover on its settings panel. Check for Updates arrives with Sparkle (M8).
 - Optional: hide the item when no external drives are attached.
 - VoiceOver reads a summary such as "2 external drives. RAID, 1.2 terabytes free, writing 380 megabytes per second."
 
@@ -153,7 +153,7 @@ A single scrolling panel about 340 pt wide, built with SwiftUI.
 4. **Network volumes**, space only.
 5. **Internal disk**, collapsed by default.
 6. **Blockers panel**, inline, when an eject fails or "Who's using this?" is open. It sits inside the device's card (or under the network volume's row), so it's clear which drive it's about, and Eject All shows one in each card that failed and scrolls to the first. Its confirmations (Terminate, Kill, Force Eject) are inline too: a transient popover is a poor host for sheets. It rescans when the popover reopens, since the 2 s rescans stop while it's closed (M5).
-7. **Footer**: settings gear, update indicator, Quit. Until the settings panel (M6), the gear opens the same menu bar settings menu as the right-click menu; the update indicator arrives with Sparkle (M8).
+7. **Footer**: settings gear, update indicator, Quit. The gear swaps the cards for the settings panel and back, as in flatline; the update indicator arrives with Sparkle (M8).
 
 Each card's ⋯ menu and each volume's context menu have Eject and "Who's Using This?". Device icons come from SF Symbols and the disk-image type icon, never `NSWorkspace.icon(forFile:)`, which reads the volume and could block on a dead share. "Free without purging" appears under a volume only when it differs from Available by more than 1 GB and reads differently at the displayed precision. The scroll view grows with its content up to the screen's height. Button labels are lowercase, as in flatline.
 
@@ -165,8 +165,12 @@ Popover views exist only while the popover is open.
 
 ### 6.5 Notifications (opt-in)
 
-- **Low space**: a volume crosses the low-space threshold. Once per crossing, with hysteresis so it doesn't repeat.
-- **Transfer finished**: write activity on a device drops to near zero after a sustained transfer of at least 1 GB. Useful when you walk away from a card offload, so it must fire while the display is asleep (§7.3).
+- **Low space**: a volume crosses the low-space threshold. Once per crossing, with hysteresis so it doesn't repeat: it re-arms only when free space is 10 % above the threshold. A volume that is already low when first seen (at launch, on mount, or after the threshold changes) isn't a crossing. Only volumes in "Volumes shown" count. No sound.
+- **Transfer finished**: write activity on a device drops to near zero after a sustained transfer of at least 1 GB. Useful when you walk away from a card offload, so it must fire while the display is asleep (§7.3). A write starts when an external drive's write rate goes over 1 MB/s and ends once it has stayed below for 10 s; the bytes written in between must reach 1 GB. Disk images are left out, since their writes also land on the drive holding the file. With a sound. Because idle checks run every 5 s, it arrives 10–15 s after the copy ends.
+
+The low-space watch runs whether or not the notification is on, so turning it on doesn't announce volumes that were already low. Verified in M6 with `FREESIDE_LOG_NOTIFICATIONS=1`, which prints each notification as it's posted: a 200 MB image filled past 10 %, and a 2.1 GB write to a USB SSD (reported about 15 s after it ended). Not yet seen in Notification Center, since the debug build hasn't been granted permission.
+
+**Display asleep (M6, 2026-10-28):** a 16.8 GB write to a USB SSD with the display put to sleep (`pmset displaysleepnow`) 7 s in. While it was off, the 5 s check kept running with the write open; App Nap didn't stretch it. The display came back on 11 s after the write ended, just before the 10 s quiet period was up, so the notification itself (16.8 GB in 20 s) was sent with the display on. A run that stays asleep throughout is still to do. The first attempt found a bug: the timer's first tick after starting had nothing to difference against and read 0, so a write that began within one tick of the timer starting went unseen, and with the display then asleep the timer stopped for good. The monitor now reads a baseline when the timer starts.
 
 Both are off by default. Turning either on asks for notification permission (`UNUserNotificationCenter`); if it's denied, the setting says so and links to System Settings → Notifications. macOS already warns when a drive is unplugged without ejecting, so freeside doesn't.
 
@@ -187,7 +191,7 @@ Shown in the popover (an inline settings panel, as in flatline), stored in `User
 | Hide when no external drives | on / off | off |
 | Accent color | phosphor green, cyan, magenta, amber, system | phosphor green |
 | Launch at login | on / off (`SMAppService.mainApp`) | off, with a prompt on first run |
-| Automatic updates | check automatically / download automatically | check automatically, daily |
+| Automatic updates | check automatically / download automatically | check automatically, daily (arrives with Sparkle in M8) |
 
 ### 6.7 Updates and website
 
@@ -198,7 +202,7 @@ Same setup as flatline:
 
 ### 6.8 Diagnostics
 
-With no telemetry, bug reports depend on what users can send. **Copy Diagnostics** (in the right-click menu and the settings panel) copies a plain-text report to the clipboard: freeside and macOS versions, Mac model, the volume → device map with protocols and formats, recent DiskArbitration errors and dissent statuses, and the last blocker scan's duration and process count. It contains no file paths from blocker scans. It sends nothing; the user pastes it into a GitHub issue.
+With no telemetry, bug reports depend on what users can send. **Copy Diagnostics** (in the right-click menu and the settings panel) copies a plain-text report to the clipboard: freeside and macOS versions, Mac model, the settings (naming no volume), the volume → device map with protocols, formats, BSD names and exact byte counts, the last 20 eject failures with their dissent statuses, and the last blocker scan's duration, process count and counts of holders and images. It contains no file paths: not from blocker scans, and not mount paths. `FREESIDE_DIAGNOSTICS=1` prints it and quits. It sends nothing; the user pastes it into a GitHub issue.
 
 ## 7. Technical design
 
@@ -225,15 +229,17 @@ freeside/
 │       │   ├── BlockerScanner.swift  # user-only libproc scan, disk-image rows
 │       │   ├── Ejector.swift         # unmount, eject, force, retry on exit
 │       │   ├── MenuBarModel.swift    # styles, transfer detection, low space, compact format
+│       │   ├── Notifications.swift   # low-space crossings, finished writes
+│       │   ├── Diagnostics.swift     # the Copy Diagnostics report
 │       │   ├── RingBuffer.swift      # from flatline (see §12)
 │       │   └── Format.swift          # from flatline
 │       └── Tests/FreesideKitTests/
 ├── App/
 │   ├── FreesideApp.swift
 │   ├── Preferences.swift
+│   ├── Notifier.swift       # UNUserNotificationCenter
 │   ├── MenuBar/             # StatusItemController, MenuBarRenderer
-│   ├── Popover/             # PopoverView, Cards, BlockersView, TraceView (from flatline)
-│   ├── Settings/…
+│   ├── Popover/             # PopoverView, Cards, BlockersView, SettingsView, TraceView (from flatline)
 │   └── Resources/
 ├── scripts/                 # release.sh, bump-version.sh (adapted from flatline)
 ├── site/                    # freeside.banast.as
@@ -250,7 +256,7 @@ freeside/
 - **I/O tick**: a 1 s timer with 10 % leeway, running only while an external device is attached **and** either the popover is open or the menu bar is showing activity. Otherwise a 5 s check reads each device's counters once to detect a transfer starting. With no external devices, there is no timer.
 - **Space**: every 30 s while shown (in the popover, or in the menu bar by the `space` style), plus on mount and during writes. Network volume reads run off the main actor with a timeout (§6.1).
 - **Blocker scan**: only after a failed eject, on "Who's using this?", and every 2 s while the Blockers panel is open. It runs off the main actor. Measured in M3 with ~530 processes: 20–30 ms when something holds the drive; 170–185 ms when nothing does, because the mapped-file pass runs then (§6.1).
-- While the screen is locked or the display is asleep, the 1 s tick stops. If a transfer is running, the 5 s check keeps going so **Transfer finished** (§6.5) still fires when the user has walked away; otherwise it stops too, and counters are read once on wake. DiskArbitration callbacks keep working.
+- While the screen is locked or the display is asleep, the 1 s tick stops. If a transfer is running, or a write hasn't yet been seen to end, the 5 s check keeps going so **Transfer finished** (§6.5) still fires when the user has walked away; otherwise it stops too, and counters are read once on wake. DiskArbitration callbacks keep working.
 - **Timers with no external drives**: only the 30 s space refresh when the menu bar shows space for the boot or a network volume, and Sparkle's scheduled update check (daily by default). Nothing else.
 
 ### 7.4 Menu bar rendering

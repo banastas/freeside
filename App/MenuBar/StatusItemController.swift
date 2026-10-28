@@ -13,6 +13,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     private let drives: DriveMonitor
     private let ejector: Ejector
     private let preferences: Preferences
+    private let notifier: Notifier
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
     /// Created per opening and released on close, so the popover's views
@@ -41,11 +42,12 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     private let contentLayer = CALayer()
     private static let horizontalPadding: CGFloat = 4
 
-    init(volumes: VolumeStore, drives: DriveMonitor, ejector: Ejector, preferences: Preferences) {
+    init(volumes: VolumeStore, drives: DriveMonitor, ejector: Ejector, preferences: Preferences, notifier: Notifier) {
         self.volumes = volumes
         self.drives = drives
         self.ejector = ejector
         self.preferences = preferences
+        self.notifier = notifier
         super.init()
 
         statusItem.autosaveName = "freeside"
@@ -210,14 +212,17 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         }
     }
 
-    /// Opens the popover, scrolled to `focus` if given.
-    func showPopover(focus: EjectTarget.ID? = nil) {
+    /// Opens the popover, scrolled to `focus` if given, or on its settings.
+    func showPopover(focus: EjectTarget.ID? = nil, settings: Bool = false) {
         popoverState.focus = focus
+        popoverState.showingSettings = settings
         guard !popoverOpen, let button = statusItem.button else { return }
         dismissStaleStatuses()
 
-        let view = PopoverView(volumes: volumes, drives: drives, ejector: ejector, preferences: preferences, state: popoverState) { [weak self] in
-            self?.showSettingsMenu()
+        let view = PopoverView(
+            volumes: volumes, drives: drives, ejector: ejector, preferences: preferences, notifier: notifier, state: popoverState
+        ) { [weak self] in
+            self?.copyDiagnostics()
         }
         let controller = NSHostingController(rootView: view)
         controller.sizingOptions = .preferredContentSize
@@ -271,59 +276,13 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         if external.isEmpty { ejectAll.action = nil }
         menu.addItem(ejectAll)
         menu.addItem(item("Open freeside", #selector(openPopover), ""))
-        menu.addItem(.separator())
-        menu.addItem(menuBarSettings())
+        let settings = item("Settings…", #selector(openSettings), "")
+        settings.keyEquivalent = ","
+        menu.addItem(settings)
+        menu.addItem(item("Copy Diagnostics", #selector(copyDiagnosticsFromMenu), ""))
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit freeside", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         open(menu)
-    }
-
-    /// The popover's gear, until the settings panel lands in M6.
-    private func showSettingsMenu() {
-        guard let menu = menuBarSettings().submenu else { return }
-        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
-    }
-    /// The menu bar settings, until the settings panel lands in M6.
-    private func menuBarSettings() -> NSMenuItem {
-        let menu = NSMenu()
-        menu.addItem(.sectionHeader(title: "Style"))
-        for style in MenuBarStyle.allCases {
-            menu.addItem(choice(style.label, selected: preferences.menuBarStyle == style) { $0.menuBarStyle = style })
-        }
-
-        let pinned = NSMenu()
-        let automatic = Volume.defaultPinned(in: volumes.volumes).map { "Automatic (\($0.name))" } ?? "Automatic"
-        pinned.addItem(choice(automatic, selected: preferences.pinnedVolumeID == nil) { $0.pinnedVolumeID = nil })
-        pinned.addItem(.separator())
-        for volume in volumes.volumes {
-            pinned.addItem(choice(volume.name, selected: preferences.pinnedVolumeID == volume.id) { $0.pinnedVolumeID = volume.id })
-        }
-        if let id = preferences.pinnedVolumeID, !volumes.volumes.contains(where: { $0.id == id }) {
-            let missing = NSMenuItem(title: "Not mounted", action: nil, keyEquivalent: "")
-            missing.state = .on
-            pinned.addItem(missing)
-        }
-        let pinnedItem = NSMenuItem(title: "Volume for Space", action: nil, keyEquivalent: "")
-        pinnedItem.submenu = pinned
-        menu.addItem(.separator())
-        menu.addItem(pinnedItem)
-
-        menu.addItem(choice("Show Activity During Transfers", selected: preferences.activityDuringTransfers) { $0.activityDuringTransfers.toggle() })
-        menu.addItem(choice("Activity Trace", selected: preferences.activityTrace) { $0.activityTrace.toggle() })
-        menu.addItem(choice("Hide When No External Drives", selected: preferences.hideWhenNoExternal) { $0.hideWhenNoExternal.toggle() })
-
-        menu.addItem(.sectionHeader(title: "Units"))
-        for units in ByteUnits.allCases {
-            menu.addItem(choice(units.label, selected: preferences.units == units) { $0.units = units })
-        }
-        menu.addItem(.sectionHeader(title: "Low Space"))
-        for threshold in LowSpaceThreshold.presets {
-            menu.addItem(choice("Below \(threshold.label)", selected: preferences.lowSpaceThreshold == threshold) { $0.lowSpaceThreshold = threshold })
-        }
-
-        let item = NSMenuItem(title: "Menu Bar", action: nil, keyEquivalent: "")
-        item.submenu = menu
-        return item
     }
 
     private func open(_ menu: NSMenu) {
@@ -343,24 +302,33 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         return item
     }
 
-    private final class Choice {
-        let apply: (Preferences) -> Void
-        init(_ apply: @escaping (Preferences) -> Void) { self.apply = apply }
-    }
-
-    private func choice(_ title: String, selected: Bool, apply: @escaping (Preferences) -> Void) -> NSMenuItem {
-        let item = item(title, #selector(choose(_:)), Choice(apply))
-        item.state = selected ? .on : .off
-        return item
-    }
-
-    @objc private func choose(_ sender: NSMenuItem) {
-        (sender.representedObject as? Choice)?.apply(preferences)
-    }
-
     @objc private func openPopover() {
         // After the app menu has closed.
         DispatchQueue.main.async { [weak self] in self?.showPopover() }
+    }
+
+    @objc private func openSettings() {
+        DispatchQueue.main.async { [weak self] in self?.showPopover(settings: true) }
+    }
+
+    @objc private func copyDiagnosticsFromMenu() {
+        copyDiagnostics()
+    }
+
+    /// Plain text on the clipboard; nothing is sent (PRD §6.8).
+    private func copyDiagnostics() {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(diagnosticsReport(), forType: .string)
+    }
+
+    func diagnosticsReport() -> String {
+        Diagnostics.report(
+            environment: .current(settings: preferences.summary),
+            volumes: volumes.volumes,
+            drives: drives.drives,
+            log: ejector.log,
+            lastScan: ejector.lastScan
+        )
     }
 
     /// From the app menu: the popover then lists what ejected and shows the

@@ -10,6 +10,7 @@ final class PopoverState {
     /// Shown under the header after Eject All, until the popover closes.
     var ejectAllResult: Ejector.EjectAllResult?
     var internalExpanded = false
+    var showingSettings = false
     /// Scrolled to when the popover opens: the first failed eject.
     var focus: EjectTarget.ID?
 }
@@ -24,9 +25,9 @@ struct PopoverView: View {
     let drives: DriveMonitor
     let ejector: Ejector
     let preferences: Preferences
+    let notifier: Notifier
     @Bindable var state: PopoverState
-    /// The menu bar settings menu, until the settings panel lands in M6.
-    let openSettings: () -> Void
+    let copyDiagnostics: () -> Void
 
     @State private var contentHeight: CGFloat = 0
 
@@ -49,8 +50,14 @@ struct PopoverView: View {
             }
             ScrollViewReader { proxy in
                 ScrollView {
-                    sections(model)
-                        .onGeometryChange(for: CGFloat.self, of: \.size.height) { contentHeight = $0 }
+                    Group {
+                        if state.showingSettings {
+                            SettingsView(preferences: preferences, volumes: volumes, notifier: notifier, copyDiagnostics: copyDiagnostics)
+                        } else {
+                            sections(model)
+                        }
+                    }
+                    .onGeometryChange(for: CGFloat.self, of: \.size.height) { contentHeight = $0 }
                 }
                 .scrollBounceBehavior(.basedOnSize)
                 .frame(height: min(contentHeight, maxScrollHeight))
@@ -61,7 +68,7 @@ struct PopoverView: View {
                     state.focus = nil
                 }
             }
-            FooterView(openSettings: openSettings)
+            FooterView(state: state)
         }
         .padding(14)
         .frame(width: 340)
@@ -227,7 +234,7 @@ private struct EjectAllSummary: View {
 }
 
 private struct FooterView: View {
-    let openSettings: () -> Void
+    @Bindable var state: PopoverState
 
     private var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
@@ -235,8 +242,10 @@ private struct FooterView: View {
 
     var body: some View {
         HStack {
-            Button(action: openSettings) {
-                Label("settings", systemImage: "gearshape")
+            Button {
+                state.showingSettings.toggle()
+            } label: {
+                Label(state.showingSettings ? "done" : "settings", systemImage: state.showingSettings ? "chevron.left" : "gearshape")
             }
             .keyboardShortcut(",")
             Text("v\(version)")

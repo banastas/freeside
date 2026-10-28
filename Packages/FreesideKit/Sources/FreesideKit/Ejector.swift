@@ -65,6 +65,17 @@ public enum EjectFailure: Sendable, Equatable {
         }
     }
 
+    /// For Copy Diagnostics: `"busy"`, `"0xF8DA0010 message"`.
+    public var diagnosticDescription: String {
+        switch self {
+        case .busy: "busy"
+        case .notPermitted(let app): "not permitted" + (app.map { " (\($0))" } ?? "")
+        case .exclusiveAccess: "exclusive access"
+        case .other(let status, let message):
+            [String(format: "0x%08X", UInt32(bitPattern: status)), message].compactMap(\.self).joined(separator: " ")
+        }
+    }
+
     public var message: String {
         switch self {
         case .busy: "Files on the drive are in use."
@@ -183,6 +194,25 @@ public final class Ejector {
         public var stillMounted: [String]
     }
 
+    /// A failed eject, for Copy Diagnostics.
+    public struct LogEntry: Sendable, Equatable {
+        public var date: Date
+        public var targetName: String
+        public var kind: VolumeKind
+        public var failure: EjectFailure
+    }
+
+    /// The last blocker scan without its paths, for Copy Diagnostics.
+    public struct ScanSummary: Sendable, Equatable {
+        public var duration: Duration
+        public var processCount: Int
+        public var blockerCount: Int
+        public var imageCount: Int
+        public var scannedMappedFiles: Bool
+    }
+
+    public static let logLimit = 20
+
     public struct EjectAllResult: Sendable, Equatable {
         public var ejected: [String]
         public var failed: [EjectTarget.ID]
@@ -191,6 +221,9 @@ public final class Ejector {
     /// Only targets with something to show: an eject in progress, a failure,
     /// or a blocker report. A successful eject removes its entry.
     public private(set) var statuses: [EjectTarget.ID: Status] = [:]
+    /// The most recent failures, oldest first.
+    public private(set) var log: [LogEntry] = []
+    public private(set) var lastScan: ScanSummary?
 
     @ObservationIgnored private let client: DiskArbitrationClient
     @ObservationIgnored private var exitSources: [EjectTarget.ID: [DispatchSourceProcess]] = [:]
@@ -219,12 +252,14 @@ public final class Ejector {
             statuses[target.id] = nil
             return true
         }
+        log.append(LogEntry(date: .now, targetName: target.name, kind: target.kind, failure: failure))
+        if log.count > Self.logLimit { log.removeFirst(log.count - Self.logLimit) }
         let mounts = target.mounts()
         var status = Status(target: target, phase: .idle, failure: failure, report: nil, stillMounted: Self.names(mounts))
         if failure == .busy {
             status.phase = .scanning
             statuses[target.id] = status
-            status.report = await BlockerScanner.scan(target.scanTarget(mounts))
+            status.report = await scan(target.scanTarget(mounts))
             status.phase = .idle
             guard statuses[target.id]?.phase == .scanning else { return false }
             retryWhenBlockersExit(status)
@@ -256,7 +291,7 @@ public final class Ejector {
         var status = statuses[target.id] ?? Status(target: target, phase: .scanning, failure: nil, report: nil, stillMounted: [])
         status.phase = .scanning
         statuses[target.id] = status
-        status.report = await BlockerScanner.scan(target.scanTarget(mounts))
+        status.report = await scan(target.scanTarget(mounts))
         status.stillMounted = Self.names(mounts)
         status.phase = .idle
         guard statuses[target.id] != nil else { return }
@@ -290,7 +325,7 @@ public final class Ejector {
     public func rescan(_ id: EjectTarget.ID) async {
         guard var status = statuses[id] else { return }
         let mounts = status.target.mounts()
-        status.report = await BlockerScanner.scan(status.target.scanTarget(mounts))
+        status.report = await scan(status.target.scanTarget(mounts))
         status.stillMounted = Self.names(mounts)
         guard statuses[id]?.phase == .idle else { return }
         statuses[id] = status
@@ -322,6 +357,18 @@ public final class Ejector {
     }
 
     // MARK: - Internals
+
+    private func scan(_ target: ScanTarget) async -> BlockerReport {
+        let report = await BlockerScanner.scan(target)
+        lastScan = ScanSummary(
+            duration: report.duration,
+            processCount: report.processCount,
+            blockerCount: report.blockers.count,
+            imageCount: report.images.count,
+            scannedMappedFiles: report.scannedMappedFiles
+        )
+        return report
+    }
 
     /// Unmounts, in this order: every synthesized whole disk on the target
     /// (APFS containers, an AppleRAID set), then each physical disk whole,

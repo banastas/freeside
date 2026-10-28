@@ -12,8 +12,12 @@ import FreesideKit
 ///   that volume and runs "Who's using this?", printing the scan.
 ///   `FREESIDE_EJECT=<mount path>` ejects that drive instead, opening the
 ///   popover if the eject fails.
+/// - `FREESIDE_DIAGNOSTICS=1` prints the Copy Diagnostics report after the
+///   first space reads, and quits.
+/// - `FREESIDE_LOG_NOTIFICATIONS=1` prints every notification as it's
+///   posted, and the ones that would be if permission were granted.
 /// - `FREESIDE_POPOVER=1` opens the popover at launch; `=internal` also
-///   expands the internal disk.
+///   expands the internal disk, `=settings` opens it on its settings.
 @MainActor
 enum Dump {
     private static let environment = ProcessInfo.processInfo.environment
@@ -25,8 +29,13 @@ enum Dump {
     /// A hook opened the popover; it stays open until closed in code.
     static var isHooked: Bool { opensPopover || inspectPath != nil }
 
+    static var printsDiagnostics: Bool { environment["FREESIDE_DIAGNOSTICS"] != nil }
+
+    static var logsNotifications: Bool { environment["FREESIDE_LOG_NOTIFICATIONS"] != nil }
+
     static var opensPopover: Bool { environment["FREESIDE_POPOVER"] != nil }
     static var expandsInternal: Bool { environment["FREESIDE_POPOVER"] == "internal" }
+    static var opensSettings: Bool { environment["FREESIDE_POPOVER"] == "settings" }
 
     static var inspectPath: String? { environment["FREESIDE_INSPECT"] ?? environment["FREESIDE_EJECT"] }
 

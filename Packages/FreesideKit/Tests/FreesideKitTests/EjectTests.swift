@@ -138,6 +138,20 @@ extension DiskImageTests {
             #expect(!inner.isAttached)
         }
 
+        @Test func listsAnImageAttachedWithDiskImages2() async throws {
+            let outer = try TestDiskImage(megabytes: 60)
+            try outer.attach()
+            let inner = try TestDiskImage(megabytes: 20, in: URL(fileURLWithPath: outer.mountPath))
+            try inner.attachWithDiskutil()
+            let innerDisk = try #require(inner.disk)
+
+            let report = await BlockerScanner.scan(try scanTarget(outer.mountPath))
+            let row = try #require(report.images.first)
+            #expect(report.images.count == 1)
+            #expect(row.bsdName == innerDisk)
+            #expect(row.imagePath.hasSuffix("/\(inner.name).dmg"))
+        }
+
         /// freeside reads volume lists, space, icons and I/O counters, and
         /// must never be what holds a drive.
         @Test func freesideIsNeverAHolder() async throws {
