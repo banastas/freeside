@@ -3,6 +3,26 @@
     <channel>
         <title>freeside</title>
         <item>
+            <title>0.2.0</title>
+            <pubDate>Wed, 28 Oct 2026 15:20:19 -0700</pubDate>
+            <link>https://freeside.banast.as</link>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>27.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<ul>
+  <li>Uses far less CPU: about 0.13 % while showing live rates, down from 1.8 %. Free space is no longer re-read in full every time a drive writes, and the menu bar no longer redraws several times per update.</li>
+  <li>An app icon: a drive with a capacity bar</li>
+  <li>The popover's header shows how many external drives are attached and their total free space; Eject All moves to the footer</li>
+  <li>The popover opens a little faster</li>
+</ul>
+]]></description>
+            <enclosure url="https://freeside.banast.as/releases/freeside-0.2.0.dmg" length="3522285" type="application/octet-stream" sparkle:edSignature="L5kj9wgwTrjs+2nQGiXCn/gbOO3JijCy6wCyml/AwGJbqiywnPr3D1cJ6sW+4RZXsklMYH58MxaTLOgo8yl5Cw=="/>
+            <sparkle:deltas>
+                <enclosure url="https://freeside.banast.as/releases/freeside3-2.delta" sparkle:deltaFrom="2" length="1244470" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="NMn29wFewIvlpe0PprKGOvhtxzMN3YgECijBy1h5yyEvbfHvSp7kA98vB26vAqlcncYS0fiIKqJTHo98kXK5Aw=="/>
+                <enclosure url="https://freeside.banast.as/releases/freeside3-1.delta" sparkle:deltaFrom="1" length="1244214" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="7UbrJDijdWiBENVPr+JeLgG7qd45BEazw1H1nwSgnqKjDRfdRgM8eI6nh0ajjtw4QxI0vVNoD4/hA0xz3LuAAw=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>0.1.1</title>
             <pubDate>Wed, 28 Oct 2026 13:13:28 -0700</pubDate>
             <link>https://freeside.banast.as</link>
