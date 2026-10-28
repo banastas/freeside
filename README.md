@@ -4,11 +4,20 @@ A small menu bar app for Apple Silicon Macs that watches your drives: **free spa
 
 > "The disk wasn't ejected because one or more programs may be using it." freeside tells you which ones.
 
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="site/screenshots/menubar-dark.png">
+    <img src="site/screenshots/menubar-light.png" width="114" alt="freeside in the menu bar: a volume named 128GB with 40 gigabytes free, a write trace, reading 53 kilobytes and writing 988 megabytes per second">
+  </picture>
+  <br><br>
+  <img src="site/screenshots/popover.png" width="366" alt="freeside's popover: three USB drives, each with read and write rates, a 60-second trace, session totals, an eject button and its volume's free space; one is writing at 974 megabytes per second">
+</p>
+
 freeside is a sibling to [flatline](https://github.com/banastas/flatline) and follows the same rules: one narrow job, Apple Silicon and macOS 27 only, no root helper, and close to zero cost when nothing is happening.
 
-**Status:** in development, not yet released. Milestones M0–M7 of the [PRD](PRD.md) are built: volumes and free space, per-drive I/O, eject with blockers, the menu bar, the popover, settings, notifications, and a notarized DMG. Sparkle updates and the site come next.
+**Status:** preview. 0.1.1 is out at [freeside.banast.as](https://freeside.banast.as) and updates itself; 1.0 waits on the checks in the [PRD](PRD.md)'s M9 (performance budgets on a quiet Mac and accuracy on more kinds of drives).
 
-## Features (planned for 1.0)
+## Features
 
 - **Free space** for external drives, disk images and the internal disk, matching what Finder shows (including purgeable space on APFS)
 - **Read/write speed** per physical drive, with a 60-second trace, for card offloads and project copies
@@ -29,7 +38,7 @@ freeside can only see the current user's processes. When a system process such a
 
 ## Install
 
-Not released yet. When it is, downloads will be at **[freeside.banast.as](https://freeside.banast.as)**.
+Download the DMG from **[freeside.banast.as](https://freeside.banast.as)**, open it, and drag freeside to Applications. It's signed and notarized, and updates itself through [Sparkle](https://sparkle-project.org).
 
 ## License
 

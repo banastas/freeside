@@ -1,12 +1,11 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-10-28)
 
-- The popover's header shows the external drive count over their total free space, as flatline's shows the chip and uptime; Eject All moves to the footer
-- App icon: a drive with a capacity bar, on flatline's dark green grid (also the site's favicon)
-- Uses far less CPU: free space is no longer re-read in full every time a drive writes, and the menu bar no longer redraws several times per update (1.8 % → 0.13 % on the 1 s tick)
+- Uses far less CPU: about 0.13 % while showing live rates, down from 1.8 %. Free space is no longer re-read in full every time a drive writes, and the menu bar no longer redraws several times per update.
+- An app icon: a drive with a capacity bar
+- The popover's header shows how many external drives are attached and their total free space; Eject All moves to the footer
 - The popover opens a little faster
-- Tick profiler: `FREESIDE_PROFILE=1`, as in flatline
 
 ## 0.1.1 (2026-10-28)
 
@@ -25,7 +24,7 @@ The first preview release.
 - Copy Diagnostics for bug reports, with no file paths in it
 - Signed, notarized and updated automatically
 
-## Development (M0–M8)
+## Development (M0–M9)
 
 - Project scaffold: an empty menu bar app and the FreesideKit package (M0)
 - Volumes: external drives, disk images, network shares and the boot volume, with free space matching Finder; updates within a second of a mount, unmount or rename; network reads time out after 2 s instead of hanging (M1)
@@ -44,3 +43,4 @@ The first preview release.
 - Release script: builds a Developer ID signed, notarized and stapled DMG (M7)
 - Updates: Sparkle checks freeside.banast.as daily; Check for Updates in the right-click menu and settings, with automatic check and download toggles; the popover's footer shows when an update is available (M8)
 - Site: freeside.banast.as with a download button, a screenshot, requirements and release notes; the release script adds each version to the update feed (M8)
+- Tick profiler: `FREESIDE_PROFILE=1`, as in flatline, with the popover's time to first frame and `FREESIDE_POPOVER=cycle` (M9)

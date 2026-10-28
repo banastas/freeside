@@ -141,7 +141,14 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         contentLayer.contentsScale = scale
         contentLayer.frame = CGRect(x: Self.horizontalPadding, y: ((button.bounds.height - size.height) / 2).rounded(), width: size.width, height: size.height)
         contentLayer.contents = image
-        if let path = Self.snapshotPath { Self.writeSnapshot(image, to: path) }
+        if let path = Self.snapshotPath {
+            Self.writeSnapshot(image, to: path)
+            // And as it would look on the other menu bar, for the README.
+            let other = NSAppearance(named: appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua ? .aqua : .darkAqua)!
+            if let image = MenuBarRenderer.image(for: layout, appearance: other, scale: scale) {
+                Self.writeSnapshot(image, to: (path as NSString).deletingPathExtension + (other.name == .aqua ? "-light.png" : "-dark.png"))
+            }
+        }
     }
 
     /// Every second while rates are on screen or a transfer may be starting;
@@ -369,7 +376,9 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     // MARK: - Development
 
     /// `FREESIDE_SNAPSHOT=<file.png>` writes every rendered menu bar image to
-    /// that file, for checking rendering without a screen capture.
+    /// that file, and the same image for the other menu bar appearance next
+    /// to it (`<file>-light.png` or `<file>-dark.png`), for checking
+    /// rendering without a screen capture.
     private static let snapshotPath = ProcessInfo.processInfo.environment["FREESIDE_SNAPSHOT"]
 
     private static func writeSnapshot(_ image: CGImage, to path: String) {
