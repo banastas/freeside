@@ -83,6 +83,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
             updateSampling()
         }
         redraw()
+        Profiler.endTick()
     }
 
     private var visibleVolumes: [Volume] {
@@ -99,8 +100,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
 
     private func redraw() {
         guard let button = statusItem.button else { return }
-        let hasExternal = drives.drives.contains { $0.kind == .external }
-        statusItem.isVisible = !(preferences.hideWhenNoExternal && !hasExternal)
+        statusItem.isVisible = !(preferences.hideWhenNoExternal && !drives.hasExternal)
 
         let style = effectiveStyle
         let pinned = preferences.pinnedVolume(in: volumes.volumes)
@@ -120,19 +120,21 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         )
         volumes.setSpaceVisible(style.showsSpace || popoverOpen)
 
-        let label = accessibilityLabel(pinned: pinned, low: low)
-        if button.accessibilityLabel() != label { button.setAccessibilityLabel(label) }
-        let tip = pinned.map(Self.tooltip)
-        if button.toolTip != tip { button.toolTip = tip }
+        Profiler.measure("a11y") {
+            let label = accessibilityLabel(pinned: pinned, low: low)
+            if button.accessibilityLabel() != label { button.setAccessibilityLabel(label) }
+            let tip = pinned.map(Self.tooltip)
+            if button.toolTip != tip { button.toolTip = tip }
+        }
 
-        let layout = MenuBarRenderer.layout(inputs)
+        let layout = Profiler.measure("layout") { MenuBarRenderer.layout(inputs) }
         let appearance = button.effectiveAppearance
         let scale = button.window?.backingScaleFactor ?? 2
         let key = RenderKey(layout: layout, appearance: appearance.name, scale: scale)
         guard key != lastRender else { return }
         lastRender = key
 
-        guard let image = MenuBarRenderer.image(for: layout, appearance: appearance, scale: scale) else { return }
+        guard let image = Profiler.measure("render", { MenuBarRenderer.image(for: layout, appearance: appearance, scale: scale) }) else { return }
         let size = CGSize(width: CGFloat(image.width) / scale, height: CGFloat(image.height) / scale)
         let length = size.width + 2 * Self.horizontalPadding
         if statusItem.length != length { statusItem.length = length }
@@ -152,7 +154,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     private func observeModel() {
         withObservationTracking {
             _ = volumes.volumes
-            _ = drives.drives.map(\.kind)
+            _ = drives.hasExternal
             _ = preferences.menuBarStyle
             _ = preferences.pinnedVolumeID
             _ = preferences.activityDuringTransfers
@@ -219,6 +221,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         popoverState.focus = focus
         popoverState.showingSettings = settings
         guard !popoverOpen, let button = statusItem.button else { return }
+        let opening = ContinuousClock.now
         dismissStaleStatuses()
 
         let view = PopoverView(
@@ -240,6 +243,14 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         self.popover = popover
 
         NSApp.activate()
+        if Profiler.enabled {
+            // PRD §8: popover open → first frame under 50 ms. The transaction
+            // that shows it commits at the end of this run loop pass.
+            CATransaction.setCompletionBlock {
+                let elapsed = ContinuousClock.now - opening
+                FileHandle.standardError.write(Data("popover first frame \(elapsed.formatted(.units(allowed: [.milliseconds], fractionalPart: .show(length: 1))))\n".utf8))
+            }
+        }
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         // Without key status the popover draws its controls inactive.
         controller.view.window?.makeKey()
@@ -247,6 +258,10 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
         volumes.setSpaceVisible(true)
         // Shows the last values read until these come back.
         volumes.refreshSpace()
+    }
+
+    func closePopover() {
+        popover?.performClose(nil)
     }
 
     func popoverDidClose(_ notification: Notification) {

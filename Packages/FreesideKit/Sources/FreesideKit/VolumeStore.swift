@@ -63,14 +63,24 @@ public final class VolumeStore {
         for volume in volumes { refreshSpace(of: volume.id) }
     }
 
-    public func refreshSpace(of id: Volume.ID) {
+    /// A `quick` refresh, for a drive that's writing, estimates Finder's
+    /// figure from the last full read instead of asking macOS for it; a
+    /// volume with no full read yet gets one.
+    public func refreshSpace(of id: Volume.ID, quick: Bool = false) {
         guard let volume = volumes.first(where: { $0.id == id }), reading.insert(id).inserted else { return }
         let path = volume.mountPath
+        let quick = quick && volume.space.map { !$0.isStale } == true
         Task {
-            let space = await reader.read(path: path)
+            var space = await reader.read(path: path, quick: quick)
+            if quick, let read = space, let full = volumes.first(where: { $0.id == id })?.space {
+                space = SpaceReader.estimate(read, from: full)
+            }
             finishRead(id: id, path: path, space: space)
         }
     }
+
+    /// True while space is on screen and refreshed every 30 s.
+    public var isSpaceVisible: Bool { refreshTimer != nil }
 
     /// While space is on screen (popover open, or the menu bar's `space`
     /// style), it's read again every 30 s. Otherwise nothing runs.
@@ -94,7 +104,8 @@ public final class VolumeStore {
         reading.remove(id)
         guard let index = volumes.firstIndex(where: { $0.id == id && $0.mountPath == path }) else { return }
         if let space {
-            volumes[index].space = space
+            // An unchanged value would still wake every observer.
+            if volumes[index].space != space { volumes[index].space = space }
         } else if volumes[index].space?.isStale == false {
             volumes[index].space?.isStale = true
         } else if volumes[index].space == nil, attempt < 3 {

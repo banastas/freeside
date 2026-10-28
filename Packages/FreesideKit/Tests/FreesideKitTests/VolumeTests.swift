@@ -114,3 +114,21 @@ import Testing
         #expect(ours == foundation)
     }
 }
+
+@Suite struct QuickSpaceTests {
+    @Test func estimateMovesFindersFigureByThePlainChange() {
+        let full = Space(total: 1_000, available: 600, availableStrict: 500)
+        let quick = Space(total: 1_000, available: 420, availableStrict: 420)
+        #expect(SpaceReader.estimate(quick, from: full) == Space(total: 1_000, available: 520, availableStrict: 420))
+        // Never below zero, however far plain free space has fallen.
+        #expect(SpaceReader.estimate(Space(total: 1_000, available: 0, availableStrict: 0), from: Space(total: 1_000, available: 10, availableStrict: 50)).available == 0)
+    }
+
+    @Test func quickReadMatchesTheFullReadsPlainFigures() throws {
+        let full = try #require(SpaceReader.readNow(path: "/"))
+        let quick = try #require(SpaceReader.readQuickNow(path: "/"))
+        #expect(quick.total == full.total)
+        // The boot volume is always being written to a little.
+        #expect(abs(quick.availableStrict - full.availableStrict) < 1_000_000_000)
+    }
+}

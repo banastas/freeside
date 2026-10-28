@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- A drive with a capacity bar: free space, the "free" in freeside. -->
+  <rect x="150" y="300" width="724" height="424" rx="96" fill="none" stroke="#33F273" stroke-width="56"/>
+  <rect x="250" y="420" width="524" height="92" rx="24" fill="none" stroke="#33F273" stroke-width="28" opacity="0.55"/>
+  <rect x="250" y="420" width="320" height="92" rx="24" fill="#33F273"/>
+  <rect x="706" y="610" width="84" height="46" rx="10" fill="#33F273"/>
+</svg>

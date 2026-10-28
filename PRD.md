@@ -293,7 +293,20 @@ Measured on an M-series Mac, popover closed:
 | Blocker scan | < 100 ms with 600 processes; never on the main thread. The mapped-file pass, which runs only when nothing else holds the drive, takes about 180 ms and is outside this budget (§6.1). |
 | Popover open → first frame | < 50 ms |
 
-Checked before each release with Instruments and with a tick profiler: run the binary with `FREESIDE_PROFILE=1`, as with flatline.
+Checked before each release with Instruments and with a tick profiler: run the binary with `FREESIDE_PROFILE=1`, as with flatline. It prints average CPU per tick phase (counters, a11y, layout, render) every 60 ticks, and each popover opening's time to first frame; `FREESIDE_POPOVER=cycle` opens and closes the popover ten times.
+
+**Measured in M9 (2026-10-28, Mac mini M2 Pro, Release build, three USB drives):**
+
+| Metric | Result | Notes |
+|---|---|---|
+| Average CPU, 1 s tick (Activity style) | 0.13 % | Over 5 min, with a steady ~5 MB/s write to an external drive from another app |
+| Average CPU, Icon style | 0.12 % | The same 5 min; the external write kept it on the 1 s tick too, so the idle case (5 s check, budget 0.05 %) is still to measure with the drives quiet |
+| Resident memory | 14–16 MB | `top`'s memory footprint |
+| Blocker scan | 27 ms, 666 processes | `scanCost` test; mapped-file pass 204 ms |
+| Popover open → first frame | 58–80 ms warm, 117–157 ms the first time | Measured with the Mac under heavy load (load average 9–11); `popover.show` alone took ~50 ms of SwiftUI layout. Over budget; re-measure on a quiet Mac |
+| No external drives | not measured | Needs every external drive unplugged |
+
+The first measurement was 0.57 % and 1.8 %. The causes, all fixed: every sample that saw any write (the internal disk writes a little all the time) re-read that volume's space with `volumeAvailableCapacityForImportantUsageKey`, which makes macOS work out purgeable space (~11 ms of CPU on the boot volume, ~3 ms on an external APFS drive, plus work in `cache_delete`); each space change re-mapped every volume to its drive through IOKit; an unchanged space value still woke every observer; and the status item watched the whole drive list, so it redrew ~3.7 times per tick. Now space is re-read only for a drive writing over 1 MB/s, with plain capacity keys (0.2 ms / 9 µs) and Finder's figure estimated from the last full read; the full read follows a write only while space is on screen; while it isn't, a writing drive's space is followed every 5 s; `remap` runs only when the volumes themselves change; and the status item watches a `hasExternal` flag. Each card's ⋯ menu is a plain button that builds an `NSMenu` when clicked: a SwiftUI `Menu` cost ~4 ms per card on every opening.
 
 ## 9. Accuracy acceptance criteria
 

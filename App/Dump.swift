@@ -17,7 +17,9 @@ import FreesideKit
 /// - `FREESIDE_LOG_NOTIFICATIONS=1` prints every notification as it's
 ///   posted, and the ones that would be if permission were granted.
 /// - `FREESIDE_POPOVER=1` opens the popover at launch; `=internal` also
-///   expands the internal disk, `=settings` opens it on its settings.
+///   expands the internal disk, `=settings` opens it on its settings, and
+///   `=cycle` opens and closes it ten times (with `FREESIDE_PROFILE=1`, each
+///   opening prints its time to first frame).
 @MainActor
 enum Dump {
     private static let environment = ProcessInfo.processInfo.environment
@@ -36,6 +38,7 @@ enum Dump {
     static var opensPopover: Bool { environment["FREESIDE_POPOVER"] != nil }
     static var expandsInternal: Bool { environment["FREESIDE_POPOVER"] == "internal" }
     static var opensSettings: Bool { environment["FREESIDE_POPOVER"] == "settings" }
+    static var cyclesPopover: Bool { environment["FREESIDE_POPOVER"] == "cycle" }
 
     static var inspectPath: String? { environment["FREESIDE_INSPECT"] ?? environment["FREESIDE_EJECT"] }
 

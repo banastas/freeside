@@ -43,7 +43,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         offerLaunchAtLoginOnce()
         // Once the status item has a window for the popover to anchor to.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [volumes, drives, ejector] in
-            if Dump.opensPopover { statusItem.showPopover(settings: Dump.opensSettings) }
+            if Dump.cyclesPopover {
+                for index in 0..<10 {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(index * 1500)) { statusItem.showPopover() }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(index * 1500 + 1000)) { statusItem.closePopover() }
+                }
+            } else if Dump.opensPopover {
+                statusItem.showPopover(settings: Dump.opensSettings)
+            }
             if Dump.printsDiagnostics {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
                     print(statusItem.diagnosticsReport(), terminator: "")

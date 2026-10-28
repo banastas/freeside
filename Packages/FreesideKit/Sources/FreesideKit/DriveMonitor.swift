@@ -33,6 +33,10 @@ public struct Drive: Identifiable, Sendable {
 public final class DriveMonitor {
     public nonisolated static let traceLength = 60
     nonisolated static let minimumSampleInterval: Duration = .milliseconds(250)
+    /// How often a writing drive's space is followed while space isn't on
+    /// screen: enough for the low-space mark, without waking the menu bar
+    /// and the other observers on every tick.
+    nonisolated static let backgroundSpaceInterval: Duration = .seconds(5)
     /// Combined rate above which a transfer is running.
     public nonisolated static let transferThreshold: Double = 1_000_000
 
@@ -42,6 +46,9 @@ public final class DriveMonitor {
     /// also lands on the drive holding its file, so images are left out.
     public private(set) var externalReadRate: Double = 0
     public private(set) var externalWriteRate: Double = 0
+    /// Changes only when an external drive arrives or the last one leaves,
+    /// so watching it doesn't wake on every sample as `drives` does.
+    public private(set) var hasExternal = false
 
     public var isTransferring: Bool { externalReadRate + externalWriteRate > Self.transferThreshold }
 
@@ -62,6 +69,11 @@ public final class DriveMonitor {
     @ObservationIgnored private var baselines: [UInt64: IOCounters] = [:]
     @ObservationIgnored private var lastCounters: [UInt64: IOCounters] = [:]
     @ObservationIgnored private var lastSample: ContinuousClock.Instant?
+    /// Drives writing over the transfer threshold at the last sample.
+    @ObservationIgnored private var writingDrives: Set<Drive.ID> = []
+    @ObservationIgnored private var lastQuickRefresh: [Drive.ID: ContinuousClock.Instant] = [:]
+    /// The volumes `remap` last saw, without their space.
+    @ObservationIgnored private var mappedVolumes: [MappedVolume] = []
     @ObservationIgnored private var timer: DispatchSourceTimer?
     @ObservationIgnored private var timerInterval: Int?
     @ObservationIgnored private var detailed = false
@@ -103,9 +115,21 @@ public final class DriveMonitor {
 
     // MARK: - Drives
 
+    private struct MappedVolume: Equatable {
+        var id: Volume.ID
+        var bsdName: String?
+        var kind: VolumeKind
+    }
+
+    /// Remaps only when the volumes themselves change: space updates arrive
+    /// far more often and don't move a volume to another drive.
     private func observeVolumes() {
         withObservationTracking {
-            remap(volumes.volumes)
+            let current = volumes.volumes.map { MappedVolume(id: $0.id, bsdName: $0.bsdName, kind: $0.kind) }
+            if current != mappedVolumes {
+                mappedVolumes = current
+                remap(volumes.volumes)
+            }
         } onChange: { [weak self] in
             Task { @MainActor in
                 guard let self, self.started else { return }
@@ -170,6 +194,8 @@ public final class DriveMonitor {
             next[index].writeRate = readable ? 0 : nil
         }
         drives = next
+        let external = next.contains { $0.kind == .external }
+        if external != hasExternal { hasExternal = external }
         updateTimer()
     }
 
@@ -203,9 +229,12 @@ public final class DriveMonitor {
         let elapsed = lastSample.map { (now - $0).timeInterval } ?? 0
         lastSample = now
 
-        var current: [UInt64: IOCounters] = [:]
-        for (id, driver) in drivers {
-            if let counters = driver.counters() { current[id] = counters }
+        let current = Profiler.measure("counters") {
+            var current: [UInt64: IOCounters] = [:]
+            for (id, driver) in drivers {
+                if let counters = driver.counters() { current[id] = counters }
+            }
+            return current
         }
 
         var externalRead = 0.0, externalWrite = 0.0
@@ -243,8 +272,20 @@ public final class DriveMonitor {
             }
             drives[index] = drive
 
-            // Free space only changes when something writes.
-            if write > 0 {
+            // Free space changes meaningfully only during a real write, so
+            // it's followed each tick with the cheap read. Once the write
+            // stops it's read in full, but only while space is on screen:
+            // otherwise the estimate serves the low-space mark, and opening
+            // the popover reads in full anyway. The 30 s refresh catches the
+            // trickle of small writes while space is on screen.
+            if write > Self.transferThreshold {
+                writingDrives.insert(drive.id)
+                let due = volumes.isSpaceVisible || lastQuickRefresh[drive.id].map { now - $0 >= Self.backgroundSpaceInterval } ?? true
+                if due {
+                    lastQuickRefresh[drive.id] = now
+                    for volumeID in drive.volumeIDs { volumes.refreshSpace(of: volumeID, quick: true) }
+                }
+            } else if writingDrives.remove(drive.id) != nil, volumes.isSpaceVisible {
                 for volumeID in drive.volumeIDs { volumes.refreshSpace(of: volumeID) }
             }
         }

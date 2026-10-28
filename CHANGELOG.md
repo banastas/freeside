@@ -3,6 +3,10 @@
 ## Unreleased
 
 - The popover's header shows the external drive count over their total free space, as flatline's shows the chip and uptime; Eject All moves to the footer
+- App icon: a drive with a capacity bar, on flatline's dark green grid (also the site's favicon)
+- Uses far less CPU: free space is no longer re-read in full every time a drive writes, and the menu bar no longer redraws several times per update (1.8 % → 0.13 % on the 1 s tick)
+- The popover opens a little faster
+- Tick profiler: `FREESIDE_PROFILE=1`, as in flatline
 
 ## 0.1.1 (2026-10-28)
 

@@ -91,15 +91,17 @@ struct DriveCard: View {
             }
             Spacer(minLength: 4)
             if ejectable {
-                Menu {
-                    actions
+                // A SwiftUI Menu here cost about 4 ms per card on every
+                // opening (PRD §8); this builds its menu only when clicked.
+                Button {
+                    ActionMenu.show([
+                        ("Eject", { Task { await ejector.eject(target) } }),
+                        ("Who's Using This?", { Task { await ejector.inspect(target) } }),
+                    ])
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
-                .menuStyle(.button)
                 .buttonStyle(.borderless)
-                .menuIndicator(.hidden)
-                .fixedSize()
                 .accessibilityLabel("More for \(drive.name)")
                 Button {
                     Task { await ejector.eject(target) }
@@ -322,5 +324,31 @@ struct NetworkCard: View {
                 }
             }
         }
+    }
+}
+
+/// A menu of actions popped up at the mouse, built only when it's shown.
+@MainActor
+enum ActionMenu {
+    static func show(_ actions: [(title: String, perform: () -> Void)]) {
+        let menu = NSMenu()
+        for action in actions { menu.addItem(Item(action.title, action.perform)) }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
+
+    private final class Item: NSMenuItem {
+        private let perform: () -> Void
+
+        init(_ title: String, _ perform: @escaping () -> Void) {
+            self.perform = perform
+            super.init(title: title, action: #selector(run), keyEquivalent: "")
+            // The menu holds the item, so the weak target stays alive.
+            target = self
+        }
+
+        @available(*, unavailable)
+        required init(coder: NSCoder) { fatalError() }
+
+        @objc private func run() { perform() }
     }
 }
