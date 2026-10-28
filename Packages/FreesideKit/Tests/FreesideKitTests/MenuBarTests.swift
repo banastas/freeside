@@ -25,6 +25,14 @@ import Testing
         #expect(Format.compact(1_000_000_000, units: .binary) == "954M")
     }
 
+    @Test func sizesAndRatesFollowTheUnits() {
+        #expect(Format.size(2_600_000_000_000, units: .decimal) == "2.6 TB")
+        #expect(Format.size(2_600_000_000_000, units: .binary) == "2.4 TiB")
+        #expect(Format.size(-5, units: .decimal) == "0 B")
+        #expect(Format.rate(412_000_000, units: .decimal) == "412 MB/s")
+        #expect(Format.rate(412_000_000, units: .binary) == "393 MiB/s")
+    }
+
     @Test func spoken() {
         #expect(Format.spoken(bytes: 1_200_000_000_000) == "1.2 terabytes")
         #expect(Format.spoken(bytes: 380_000_000, perSecond: true) == "380 megabytes per second")

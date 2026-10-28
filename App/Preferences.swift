@@ -1,6 +1,37 @@
-import Foundation
 import FreesideKit
 import Observation
+import SwiftUI
+
+/// The popover's accent, shared with flatline.
+enum Accent: String, CaseIterable, Identifiable {
+    case phosphor, cyan, magenta, amber, system
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .phosphor: "Phosphor Green"
+        case .cyan: "Cyan"
+        case .magenta: "Magenta"
+        case .amber: "Amber"
+        case .system: "System"
+        }
+    }
+
+    var color: Color {
+        switch self {
+        case .phosphor: Color(red: 0.20, green: 0.95, blue: 0.45)
+        case .cyan: Color(red: 0.15, green: 0.85, blue: 1.00)
+        case .magenta: Color(red: 1.00, green: 0.25, blue: 0.75)
+        case .amber: Color(red: 1.00, green: 0.72, blue: 0.10)
+        case .system: .accentColor
+        }
+    }
+
+    /// For writes, mirrored below reads in a trace.
+    var writeColor: Color {
+        self == .magenta ? Accent.cyan.color : Accent.magenta.color
+    }
+}
 
 /// User settings, persisted to `UserDefaults`. The settings panel comes in
 /// M6; until then the menu bar ones are in the right-click menu.
@@ -17,6 +48,7 @@ final class Preferences {
     var lowSpaceThreshold: LowSpaceThreshold { didSet { save(lowSpaceThreshold.rawValue, "lowSpaceThreshold") } }
     var volumesShown: Set<VolumeKind> { didSet { save(volumesShown.map(\.rawValue).sorted(), "volumesShown") } }
     var hideWhenNoExternal: Bool { didSet { save(hideWhenNoExternal, "hideWhenNoExternal") } }
+    var accent: Accent { didSet { save(accent.rawValue, "accent") } }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -35,6 +67,7 @@ final class Preferences {
         lowSpaceThreshold = defaults.string(forKey: "lowSpaceThreshold").flatMap(LowSpaceThreshold.init(rawValue:)) ?? .percent(10)
         volumesShown = Set((defaults.stringArray(forKey: "volumesShown") ?? []).compactMap(VolumeKind.init(rawValue:)))
         hideWhenNoExternal = defaults.bool(forKey: "hideWhenNoExternal")
+        accent = Self.load(defaults, "accent", .phosphor)
     }
 
     /// The pinned volume if it's mounted, else nil; the default when none is chosen.

@@ -285,7 +285,9 @@ public final class Ejector {
         rescanTimers[id] = timer
     }
 
-    private func rescan(_ id: EjectTarget.ID) async {
+    /// Scans again, keeping the failure. The popover calls it when it
+    /// reopens on a target, since the 2 s rescans stop while it's closed.
+    public func rescan(_ id: EjectTarget.ID) async {
         guard var status = statuses[id] else { return }
         let mounts = status.target.mounts()
         status.report = await BlockerScanner.scan(status.target.scanTarget(mounts))

@@ -54,6 +54,7 @@ public enum ByteUnits: String, Sendable, CaseIterable, Identifiable {
     public var id: Self { self }
     public var label: String { self == .decimal ? "Decimal (GB)" : "Binary (GiB)" }
     var step: Double { self == .decimal ? 1000 : 1024 }
+    var names: [String] { self == .decimal ? ["B", "KB", "MB", "GB", "TB", "PB"] : ["B", "KiB", "MiB", "GiB", "TiB", "PiB"] }
 }
 
 /// Below this, a volume gets the low-space mark.

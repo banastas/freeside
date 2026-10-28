@@ -27,6 +27,19 @@ public enum Format {
         return "\(number) \(unit)"
     }
 
+    /// Free space and totals in the units chosen in Settings: `"2.6 TB"`,
+    /// or `"2.4 TiB"` in binary units.
+    public static func size(_ count: Int64, units: ByteUnits) -> String {
+        let (number, unit) = scaled(Double(max(0, count)), step: units.step, units: units.names)
+        return "\(number) \(unit)"
+    }
+
+    /// `"412 MB/s"`, or `"393 MiB/s"` in binary units.
+    public static func rate(_ bytesPerSecond: Double, units: ByteUnits) -> String {
+        let (number, unit) = scaled(max(0, bytesPerSecond), step: units.step, units: units.names)
+        return "\(number) \(unit)/s"
+    }
+
     /// Compact gigabytes for the menu bar: `"12.4G"`.
     public static func gigabytesCompact(_ count: UInt64) -> String {
         oneDecimal(Double(count) / 1_073_741_824) + "G"

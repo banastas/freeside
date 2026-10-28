@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.3: building (M4 done; M1's SD slot check pending) |
+| **Status** | Draft v0.3: building (M5 done; M1's SD slot check pending) |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
@@ -152,8 +152,10 @@ A single scrolling panel about 340 pt wide, built with SwiftUI.
 3. **Disk images**, grouped.
 4. **Network volumes**, space only.
 5. **Internal disk**, collapsed by default.
-6. **Blockers panel**, inline, when an eject fails or "Who's using this?" is open.
-7. **Footer**: settings gear, update indicator, Quit.
+6. **Blockers panel**, inline, when an eject fails or "Who's using this?" is open. It sits inside the device's card (or under the network volume's row), so it's clear which drive it's about, and Eject All shows one in each card that failed and scrolls to the first. Its confirmations (Terminate, Kill, Force Eject) are inline too: a transient popover is a poor host for sheets. It rescans when the popover reopens, since the 2 s rescans stop while it's closed (M5).
+7. **Footer**: settings gear, update indicator, Quit. Until the settings panel (M6), the gear opens the same menu bar settings menu as the right-click menu; the update indicator arrives with Sparkle (M8).
+
+Each card's ⋯ menu and each volume's context menu have Eject and "Who's Using This?". Device icons come from SF Symbols and the disk-image type icon, never `NSWorkspace.icon(forFile:)`, which reads the volume and could block on a dead share. "Free without purging" appears under a volume only when it differs from Available by more than 1 GB and reads differently at the displayed precision. The scroll view grows with its content up to the screen's height. Button labels are lowercase, as in flatline.
 
 Popover views exist only while the popover is open.
 
@@ -230,8 +232,7 @@ freeside/
 │   ├── FreesideApp.swift
 │   ├── Preferences.swift
 │   ├── MenuBar/             # StatusItemController, MenuBarRenderer
-│   ├── Blockers/…           # Blockers panel; moves into the popover in M5
-│   ├── Popover/…
+│   ├── Popover/             # PopoverView, Cards, BlockersView, TraceView (from flatline)
 │   ├── Settings/…
 │   └── Resources/
 ├── scripts/                 # release.sh, bump-version.sh (adapted from flatline)
@@ -254,7 +255,7 @@ freeside/
 
 ### 7.4 Menu bar rendering
 
-Same approach as flatline (its PRD §7.4): draw into one image per tick, put it in a `CALayer` inside the status button rather than `button.image`, use the menu bar's label color, and skip the redraw when nothing visible changed. The canvas and per-glyph text drawing are copied from flatline. The drive glyph is the SF Symbol rasterized once per appearance and scale. With no timer in `icon` style, appearance and backing-scale changes trigger their own redraws. `FREESIDE_SNAPSHOT=<file.png>` writes each rendered image, for checking without a screen capture.
+Same approach as flatline (its PRD §7.4): draw into one image per tick, put it in a `CALayer` inside the status button rather than `button.image`, use the menu bar's label color, and skip the redraw when nothing visible changed. The canvas and per-glyph text drawing are copied from flatline. The drive glyph is the SF Symbol rasterized once per appearance and scale. With no timer in `icon` style, appearance and backing-scale changes trigger their own redraws. `FREESIDE_SNAPSHOT=<file.png>` writes each rendered image, for checking without a screen capture. `FREESIDE_POPOVER=1` opens the popover at launch (`=internal` also expands the internal disk); a popover opened by a development hook stays open until closed in code, because an app launched from a shell can't activate itself and a transient popover would close at the first change of key window.
 
 ### 7.5 Security and distribution
 

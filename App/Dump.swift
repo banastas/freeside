@@ -8,10 +8,12 @@ import FreesideKit
 /// - `FREESIDE_DUMP_RATES=<seconds>` samples every second for that long,
 ///   printing each drive's read and write bytes per second, for comparing
 ///   with `iostat`.
-/// - `FREESIDE_INSPECT=<mount path>` opens the Blockers panel for the drive
-///   holding that volume, as "Who's Using This?" does, and prints the scan.
+/// - `FREESIDE_INSPECT=<mount path>` opens the popover on the drive holding
+///   that volume and runs "Who's using this?", printing the scan.
 ///   `FREESIDE_EJECT=<mount path>` ejects that drive instead, opening the
-///   panel if the eject fails.
+///   popover if the eject fails.
+/// - `FREESIDE_POPOVER=1` opens the popover at launch; `=internal` also
+///   expands the internal disk.
 @MainActor
 enum Dump {
     private static let environment = ProcessInfo.processInfo.environment
@@ -19,6 +21,12 @@ enum Dump {
     static var isRequested: Bool {
         environment["FREESIDE_DUMP_VOLUMES"] != nil || environment["FREESIDE_DUMP_RATES"] != nil
     }
+
+    /// A hook opened the popover; it stays open until closed in code.
+    static var isHooked: Bool { opensPopover || inspectPath != nil }
+
+    static var opensPopover: Bool { environment["FREESIDE_POPOVER"] != nil }
+    static var expandsInternal: Bool { environment["FREESIDE_POPOVER"] == "internal" }
 
     static var inspectPath: String? { environment["FREESIDE_INSPECT"] ?? environment["FREESIDE_EJECT"] }
 

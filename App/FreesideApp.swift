@@ -32,8 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         let statusItem = StatusItemController(volumes: volumes, drives: drives, ejector: ejector, preferences: preferences)
         self.statusItem = statusItem
-        if let path = Dump.inspectPath {
-            Dump.inspect(path, volumes: volumes, drives: drives, ejector: ejector, show: statusItem.showBlockers)
+        // Once the status item has a window for the popover to anchor to.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [volumes, drives, ejector] in
+            if Dump.opensPopover { statusItem.showPopover() }
+            if let path = Dump.inspectPath {
+                Dump.inspect(path, volumes: volumes, drives: drives, ejector: ejector, show: { statusItem.showPopover(focus: $0) })
+            }
         }
     }
 }

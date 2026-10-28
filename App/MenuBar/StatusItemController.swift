@@ -2,22 +2,30 @@ import AppKit
 import FreesideKit
 import ImageIO
 import Observation
+import SwiftUI
 
 /// Owns the status item: draws it in the chosen style, switches to activity
-/// during transfers, and opens menus. A click shows drives, their rates and
-/// volumes, with Eject and "Who's Using This?" (the popover replaces it in
-/// M5); a right-click or Control-click shows the app menu.
+/// during transfers, opens the popover on click and the app menu on a
+/// right-click or Control-click.
 @MainActor
-final class StatusItemController: NSObject, NSMenuDelegate {
+final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
     private let volumes: VolumeStore
     private let drives: DriveMonitor
     private let ejector: Ejector
     private let preferences: Preferences
-    private let blockers: BlockersPanel
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
 
+    /// Created per opening and released on close, so the popover's views
+    /// exist only while it's open.
+    private var popover: NSPopover?
+    private let popoverState: PopoverState = {
+        let state = PopoverState()
+        state.internalExpanded = Dump.expandsInternal
+        return state
+    }()
+
     private var transfer = TransferDetector()
-    private var drivesMenuOpen = false
+    private var popoverOpen: Bool { popover?.isShown == true }
 
     private struct RenderKey: Equatable {
         var layout: MenuBarRenderer.Layout
@@ -38,7 +46,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         self.drives = drives
         self.ejector = ejector
         self.preferences = preferences
-        blockers = BlockersPanel(ejector: ejector)
         super.init()
 
         statusItem.autosaveName = "freeside"
@@ -107,7 +114,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
             trace: preferences.activityTrace ? drives.externalTrace(Int(MenuBarRenderer.traceWidth)) : nil,
             units: preferences.units
         )
-        volumes.setSpaceVisible(style.showsSpace)
+        volumes.setSpaceVisible(style.showsSpace || popoverOpen)
 
         let label = accessibilityLabel(pinned: pinned, low: low)
         if button.accessibilityLabel() != label { button.setAccessibilityLabel(label) }
@@ -134,7 +141,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     /// Every second while rates are on screen or a transfer may be starting;
     /// otherwise DriveMonitor's 5 s check.
     private func updateSampling() {
-        drives.setDetailed(drivesMenuOpen || effectiveStyle.showsActivity || transfer.isPending)
+        drives.setDetailed(popoverOpen || effectiveStyle.showsActivity || transfer.isPending)
     }
 
     /// Redraws when volumes, space or settings change, without waiting for a tick.
@@ -196,51 +203,64 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let event = NSApp.currentEvent
         if event?.type == .rightMouseUp || event?.modifierFlags.contains(.control) == true {
             showAppMenu()
+        } else if popoverOpen {
+            popover?.performClose(nil)
         } else {
-            showDrivesMenu()
+            showPopover()
         }
     }
 
-    private func showDrivesMenu() {
-        drivesMenuOpen = true
-        updateSampling()
+    /// Opens the popover, scrolled to `focus` if given.
+    func showPopover(focus: EjectTarget.ID? = nil) {
+        popoverState.focus = focus
+        guard !popoverOpen, let button = statusItem.button else { return }
+        dismissStaleStatuses()
 
-        let menu = NSMenu()
-        menu.delegate = self
-        let volumesByID = Dictionary(volumes.volumes.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
-        var listed: Set<Volume.ID> = []
-        for kind in VolumeKind.allCases where preferences.volumesShown.contains(kind) {
-            let kindDrives = drives.drives.filter { $0.kind == kind }
-            let loose = volumes.volumes.filter { volume in
-                volume.kind == kind && !kindDrives.contains { $0.volumeIDs.contains(volume.id) }
-            }
-            guard !kindDrives.isEmpty || !loose.isEmpty else { continue }
-            menu.addItem(.sectionHeader(title: Self.title(for: kind)))
-            if kind == .external, kindDrives.count > 1 {
-                menu.addItem(item("Eject All", #selector(ejectAll(_:)), kindDrives.map(EjectTarget.init(drive:))))
-            }
-            for drive in kindDrives {
-                let driveLine = NSMenuItem(title: Self.line(for: drive), action: nil, keyEquivalent: "")
-                // The boot drive can't be ejected.
-                if kind != .internal { driveLine.submenu = actions(for: EjectTarget(drive: drive), eject: "Eject") }
-                menu.addItem(driveLine)
-                for volume in drive.volumeIDs.compactMap({ volumesByID[$0] }) {
-                    let volumeLine = NSMenuItem(title: line(for: volume), action: nil, keyEquivalent: "")
-                    volumeLine.indentationLevel = 1
-                    menu.addItem(volumeLine)
-                    listed.insert(volume.id)
-                }
-            }
-            for volume in loose where !listed.contains(volume.id) {
-                let volumeLine = NSMenuItem(title: line(for: volume), action: nil, keyEquivalent: "")
-                if volume.kind == .network { volumeLine.submenu = actions(for: EjectTarget(networkVolume: volume), eject: "Unmount") }
-                menu.addItem(volumeLine)
-            }
+        let view = PopoverView(volumes: volumes, drives: drives, ejector: ejector, preferences: preferences, state: popoverState) { [weak self] in
+            self?.showSettingsMenu()
         }
-        if menu.items.isEmpty { menu.addItem(withTitle: "No volumes", action: nil, keyEquivalent: "") }
-        open(menu)
-        // Shows the last values read; the next opening has fresh ones.
+        let controller = NSHostingController(rootView: view)
+        controller.sizingOptions = .preferredContentSize
+
+        let popover = NSPopover()
+        // Launched from a shell, freeside can't activate itself, and a
+        // transient popover then closes at the first change of key window.
+        popover.behavior = Dump.isHooked ? .applicationDefined : .transient
+        popover.animates = false
+        popover.delegate = self
+        popover.contentViewController = controller
+        self.popover = popover
+
+        NSApp.activate()
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        // Without key status the popover draws its controls inactive.
+        controller.view.window?.makeKey()
+        updateSampling()
+        volumes.setSpaceVisible(true)
+        // Shows the last values read until these come back.
         volumes.refreshSpace()
+    }
+
+    func popoverDidClose(_ notification: Notification) {
+        popoverState.ejectAllResult = nil
+        // Release the popover, its window and the SwiftUI tree once AppKit has
+        // finished closing it.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.popover?.isShown != true else { return }
+            self.popover = nil
+            self.updateSampling()
+            self.redraw()
+        }
+    }
+
+    /// A target whose drive has gone (ejected from Finder, unplugged) has
+    /// nothing left to show.
+    private func dismissStaleStatuses() {
+        let live = Set(drives.drives.map { EjectTarget(drive: $0).id }
+            + volumes.volumes.filter { $0.kind == .network }.map { EjectTarget(networkVolume: $0).id })
+        for (id, status) in ejector.statuses where !live.contains(id) && status.phase == .idle {
+            ejector.dismiss(id)
+        }
     }
 
     private func showAppMenu() {
@@ -250,7 +270,7 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         let ejectAll = item("Eject All", #selector(ejectAll(_:)), external)
         if external.isEmpty { ejectAll.action = nil }
         menu.addItem(ejectAll)
-        menu.addItem(item("Open freeside", #selector(openDrives), ""))
+        menu.addItem(item("Open freeside", #selector(openPopover), ""))
         menu.addItem(.separator())
         menu.addItem(menuBarSettings())
         menu.addItem(.separator())
@@ -258,6 +278,11 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         open(menu)
     }
 
+    /// The popover's gear, until the settings panel lands in M6.
+    private func showSettingsMenu() {
+        guard let menu = menuBarSettings().submenu else { return }
+        menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
+    }
     /// The menu bar settings, until the settings panel lands in M6.
     private func menuBarSettings() -> NSMenuItem {
         let menu = NSMenu()
@@ -309,15 +334,6 @@ final class StatusItemController: NSObject, NSMenuDelegate {
     func menuDidClose(_ menu: NSMenu) {
         // Detach so the next click goes through handleClick again.
         statusItem.menu = nil
-        drivesMenuOpen = false
-        updateSampling()
-    }
-
-    private func actions(for target: EjectTarget, eject: String) -> NSMenu {
-        let menu = NSMenu()
-        menu.addItem(item(eject, #selector(ejectTarget(_:)), target))
-        menu.addItem(item("Who's Using This?", #selector(inspect(_:)), target))
-        return menu
     }
 
     private func item(_ title: String, _ action: Selector, _ object: Any) -> NSMenuItem {
@@ -342,63 +358,21 @@ final class StatusItemController: NSObject, NSMenuDelegate {
         (sender.representedObject as? Choice)?.apply(preferences)
     }
 
-    @objc private func openDrives() {
+    @objc private func openPopover() {
         // After the app menu has closed.
-        DispatchQueue.main.async { [weak self] in self?.showDrivesMenu() }
+        DispatchQueue.main.async { [weak self] in self?.showPopover() }
     }
 
-    @objc private func ejectTarget(_ sender: NSMenuItem) {
-        guard let target = sender.representedObject as? EjectTarget else { return }
-        Task {
-            if await !ejector.eject(target) { blockers.show(target.id) }
-        }
-    }
-
+    /// From the app menu: the popover then lists what ejected and shows the
+    /// first failure's blockers.
     @objc private func ejectAll(_ sender: NSMenuItem) {
         guard let targets = sender.representedObject as? [EjectTarget] else { return }
         Task {
             let result = await ejector.ejectAll(targets)
-            // The popover lists what ejected (M5); for now, show the first failure.
-            if let first = result.failed.first { blockers.show(first) }
+            guard !result.failed.isEmpty else { return }
+            showPopover(focus: result.failed.first)
+            popoverState.ejectAllResult = result
         }
-    }
-
-    func showBlockers(_ id: EjectTarget.ID) {
-        blockers.show(id)
-    }
-
-    @objc private func inspect(_ sender: NSMenuItem) {
-        guard let target = sender.representedObject as? EjectTarget else { return }
-        blockers.show(target.id)
-        Task { await ejector.inspect(target) }
-    }
-
-    // MARK: - Menu lines
-
-    private static func title(for kind: VolumeKind) -> String {
-        switch kind {
-        case .external: "External"
-        case .diskImage: "Disk Images"
-        case .network: "Network"
-        case .internal: "Internal"
-        }
-    }
-
-    /// "G-DRIVE SSD 55B7 · USB   R 412 MB/s  W 380 MB/s"
-    private static func line(for drive: Drive) -> String {
-        let name = [drive.name, drive.kind == .external ? drive.deviceProtocol : nil].compactMap(\.self).joined(separator: " · ")
-        guard let read = drive.readRate, let write = drive.writeRate else { return "\(name)   no I/O statistics" }
-        return "\(name)   R \(Format.rate(read))  W \(Format.rate(write))"
-    }
-
-    /// "Photography  2.6 TB free of 4.0 TB · APFS", with "low" below the threshold.
-    private func line(for volume: Volume) -> String {
-        let space = volume.space.map { space in
-            "\(Format.decimalBytes(UInt64(space.available))) free of \(Format.decimalBytes(UInt64(space.total)))"
-                + (space.isStale ? " (stale)" : "")
-                + (preferences.lowSpaceThreshold.isLow(space) ? " · low" : "")
-        } ?? "reading…"
-        return "\(volume.name)  \(space) · \(volume.format)"
     }
 
     // MARK: - Development
