@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let volumes = VolumeStore()
     private lazy var drives = DriveMonitor(volumes: volumes)
     private let ejector = Ejector()
+    private let preferences = Preferences()
     private var statusItem: StatusItemController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -29,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Dump.run(volumes: volumes, drives: drives)
             return
         }
-        let statusItem = StatusItemController(volumes: volumes, drives: drives, ejector: ejector)
+        let statusItem = StatusItemController(volumes: volumes, drives: drives, ejector: ejector, preferences: preferences)
         self.statusItem = statusItem
         if let path = Dump.inspectPath {
             Dump.inspect(path, volumes: volumes, drives: drives, ejector: ejector, show: statusItem.showBlockers)

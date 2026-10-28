@@ -159,7 +159,7 @@ extension DiskImageTests {
             try handle.write(contentsOf: Data(repeating: 7, count: 20_000_000))
             try handle.synchronize()
             try handle.close()
-            try await Task.sleep(for: .milliseconds(200))
+            try await Task.sleep(for: .milliseconds(300))
             monitor.sample()
 
             let sampled = try #require(monitor.drives.first { $0.id == drive.id })

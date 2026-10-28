@@ -31,6 +31,7 @@ public struct Drive: Identifiable, Sendable {
 @Observable
 public final class DriveMonitor {
     public nonisolated static let traceLength = 60
+    nonisolated static let minimumSampleInterval: Duration = .milliseconds(250)
     /// Combined rate above which a transfer is running.
     public nonisolated static let transferThreshold: Double = 1_000_000
 
@@ -42,6 +43,18 @@ public final class DriveMonitor {
     public private(set) var externalWriteRate: Double = 0
 
     public var isTransferring: Bool { externalReadRate + externalWriteRate > Self.transferThreshold }
+
+    /// The last `count` seconds of combined external read and write rates,
+    /// oldest first, for the menu bar trace.
+    public func externalTrace(_ count: Int) -> (read: [Double], write: [Double]) {
+        var read = [Double](repeating: 0, count: count)
+        var write = [Double](repeating: 0, count: count)
+        for drive in drives where drive.kind == .external {
+            for (index, value) in drive.readTrace.suffix(count).enumerated() { read[index] += value }
+            for (index, value) in drive.writeTrace.suffix(count).enumerated() { write[index] += value }
+        }
+        return (read, write)
+    }
 
     @ObservationIgnored private let volumes: VolumeStore
     @ObservationIgnored private var drivers: [UInt64: BlockDriver] = [:]
@@ -75,8 +88,11 @@ public final class DriveMonitor {
         observers = []
     }
 
-    /// True while rates are on screen: the popover is open, or the menu bar shows activity.
+    /// True while rates are on screen: the popover is open, or the menu bar
+    /// shows activity, or a transfer may be starting. Samples at once when it
+    /// turns on; does nothing if unchanged.
     public func setDetailed(_ detailed: Bool) {
+        guard detailed != self.detailed else { return }
         self.detailed = detailed
         updateTimer()
         if detailed { sample() }
@@ -171,6 +187,9 @@ public final class DriveMonitor {
 
     func sample() {
         let now = ContinuousClock.now
+        // Right after another sample (turning detailed mode on samples at
+        // once), the counters have barely moved and the rates would read 0.
+        if let lastSample, now - lastSample < Self.minimumSampleInterval { return }
         let elapsed = lastSample.map { (now - $0).timeInterval } ?? 0
         lastSample = now
 

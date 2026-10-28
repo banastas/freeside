@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.3: building (M3 done; M1's SD slot check pending) |
+| **Status** | Draft v0.3: building (M4 done; M1's SD slot check pending) |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
@@ -134,12 +134,12 @@ The scan runs only on demand (§7.3), never on the idle tick.
 - A single `NSStatusItem`, monochrome in the menu bar's label color, fixed width.
 - **Display styles**:
   - `icon`: a drive glyph
-  - `space`: free space on one pinned volume, label stacked above value (`RAID` / `1.2T`). Long names are truncated to fit the reserved width; the full name is in the tooltip and the VoiceOver label. If the pinned volume isn't mounted, the item shows `icon` until it returns.
+  - `space`: free space on one pinned volume, label stacked above value (`RAID` / `1.2T`). Long names are truncated to fit the reserved width (eight characters); the full name is in the tooltip and the VoiceOver label. If the pinned volume isn't mounted, the item shows `icon` until it returns (and `space+activity` shows `activity`).
   - `activity`: combined read/write rate across external devices, stacked (`R 412M` / `W 380M`), with an optional trace that goes flat when idle
   - `space+activity`
-- **Show activity during transfers** (on by default): in `icon` or `space` style, the item switches to `activity` while a transfer runs (over 1 MB/s for 3 s) and switches back 10 s after it ends. The item's width is reserved for both, so nothing moves.
-- When any visible volume is below the low-space threshold, the glyph gets a `!` mark. No color.
-- Click opens the popover. Right-click or Control-click opens a small menu: Eject All, Open, Settings, Copy Diagnostics, Check for Updates, Quit.
+- **Show activity during transfers** (on by default): in `icon` or `space` style, the item switches to `activity` while a transfer runs (over 1 MB/s for 3 s) and switches back 10 s after it ends. The item's width is reserved for both, so nothing moves: with the trace on, `icon` reserves about 68 pt. As soon as a 5 s check sees more than 1 MB/s, sampling goes to every second to confirm it, so a transfer shows within about 3–8 s. Any I/O over the threshold counts, including Spotlight reading a large file just copied (M4).
+- When any visible volume is below the low-space threshold, the glyph gets a `!` mark (`externaldrive.badge.exclamationmark`). No color. In `space` style, which has no glyph, the caption gets a `!` when the pinned volume is low (`RAID!`).
+- Click opens the popover. Right-click or Control-click opens a small menu: Eject All, Open, Settings, Copy Diagnostics, Check for Updates, Quit. Until the settings panel (M6), the menu bar settings are a submenu here; Copy Diagnostics and Check for Updates arrive in M6 and M8.
 - Optional: hide the item when no external drives are attached.
 - VoiceOver reads a summary such as "2 external drives. RAID, 1.2 terabytes free, writing 380 megabytes per second."
 
@@ -178,6 +178,7 @@ Shown in the popover (an inline settings panel, as in flatline), stored in `User
 | Menu bar style | icon, space, activity, space+activity | icon |
 | Pinned volume (for `space`) | any visible volume | first external, else the boot volume |
 | Show activity during transfers | on / off | on |
+| Activity trace (the graph beside the rates) | on / off | on |
 | Units (space and rates) | decimal (GB, MB/s, like Finder), binary (GiB, MiB/s) | decimal |
 | Low-space threshold | 5 %, 10 %, 20 %, or a fixed amount in GB | 10 % |
 | Notifications | Low space, Transfer finished | off |
@@ -221,13 +222,14 @@ freeside/
 │       │   ├── DriveMonitor.swift    # IOBlockStorageDriver statistics, rates, timer policy
 │       │   ├── BlockerScanner.swift  # user-only libproc scan, disk-image rows
 │       │   ├── Ejector.swift         # unmount, eject, force, retry on exit
+│       │   ├── MenuBarModel.swift    # styles, transfer detection, low space, compact format
 │       │   ├── RingBuffer.swift      # from flatline (see §12)
 │       │   └── Format.swift          # from flatline
 │       └── Tests/FreesideKitTests/
 ├── App/
 │   ├── FreesideApp.swift
-│   ├── StatusItemController.swift
-│   ├── MenuBarRenderer.swift
+│   ├── Preferences.swift
+│   ├── MenuBar/             # StatusItemController, MenuBarRenderer
 │   ├── Blockers/…           # Blockers panel; moves into the popover in M5
 │   ├── Popover/…
 │   ├── Settings/…
@@ -252,7 +254,7 @@ freeside/
 
 ### 7.4 Menu bar rendering
 
-Same approach as flatline (its PRD §7.4): draw into one image per tick, put it in a `CALayer` inside the status button rather than `button.image`, use the menu bar's label color, and skip the redraw when nothing visible changed.
+Same approach as flatline (its PRD §7.4): draw into one image per tick, put it in a `CALayer` inside the status button rather than `button.image`, use the menu bar's label color, and skip the redraw when nothing visible changed. The canvas and per-glyph text drawing are copied from flatline. The drive glyph is the SF Symbol rasterized once per appearance and scale. With no timer in `icon` style, appearance and backing-scale changes trigger their own redraws. `FREESIDE_SNAPSHOT=<file.png>` writes each rendered image, for checking without a screen capture.
 
 ### 7.5 Security and distribution
 

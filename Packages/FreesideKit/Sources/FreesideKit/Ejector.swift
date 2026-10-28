@@ -424,7 +424,19 @@ public final class Ejector {
         waitingFor[id] = waiting
         guard waiting.isEmpty, statuses[id]?.phase == .idle else { return }
         waitingFor[id] = nil
-        Task { await retry(id) }
+        Task { await retryAfterExit(id) }
+    }
+
+    /// The exit can be reported a moment before the kernel lets go of the
+    /// process's files, so a retry that fails with nothing left to blame
+    /// tries again shortly. One that finds new blockers waits for them instead.
+    private func retryAfterExit(_ id: EjectTarget.ID) async {
+        for attempt in 1...3 {
+            if await retry(id) { return }
+            guard let status = statuses[id], status.failure == .busy, status.report?.isEmpty == true, attempt < 3 else { return }
+            try? await Task.sleep(for: .seconds(1))
+            guard statuses[id]?.phase == .idle else { return }
+        }
     }
 
     private func stopWatching(_ id: EjectTarget.ID) {
