@@ -34,6 +34,11 @@ public enum MenuBarStyle: String, Sendable, CaseIterable, Identifiable {
         }
     }
 
+    /// Whether the activity trace is drawn. Only the styles that always show
+    /// activity have it: `icon` and `space` switch to rates alone during a
+    /// transfer, so the width they reserve stays close to their own.
+    public func showsTrace(traceOn: Bool) -> Bool { traceOn && showsActivity }
+
     /// Every style `effective` can return, so the item's width can be
     /// reserved for all of them and nothing moves when it switches.
     public func reserved(activityDuringTransfers: Bool) -> [MenuBarStyle] {

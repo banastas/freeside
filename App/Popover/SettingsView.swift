@@ -39,6 +39,7 @@ struct SettingsView: View {
                 }
                 Toggle("activity during transfers", isOn: $preferences.activityDuringTransfers)
                 Toggle("activity trace", isOn: $preferences.activityTrace)
+                    .disabled(!preferences.menuBarStyle.showsActivity)
                 Toggle("hide with no external drives", isOn: $preferences.hideWhenNoExternal)
             }
 

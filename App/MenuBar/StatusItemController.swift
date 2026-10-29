@@ -115,7 +115,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
             anyLow: !low.isEmpty,
             readRate: drives.externalReadRate,
             writeRate: drives.externalWriteRate,
-            trace: preferences.activityTrace ? drives.externalTrace(Int(MenuBarRenderer.traceWidth)) : nil,
+            trace: preferences.menuBarStyle.showsTrace(traceOn: preferences.activityTrace) ? drives.externalTrace(Int(MenuBarRenderer.traceWidth)) : nil,
             units: preferences.units
         )
         volumes.setSpaceVisible(style.showsSpace || popoverOpen)

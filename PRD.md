@@ -137,7 +137,7 @@ The scan runs only on demand (§7.3), never on the idle tick.
   - `space`: free space on one pinned volume, label stacked above value (`RAID` / `1.2T`). Long names are truncated to fit the reserved width (eight characters); the full name is in the tooltip and the VoiceOver label. If the pinned volume isn't mounted, the item shows `icon` until it returns (and `space+activity` shows `activity`).
   - `activity`: combined read/write rate across external devices, stacked (`R 412M` / `W 380M`), with an optional trace that goes flat when idle
   - `space+activity`
-- **Show activity during transfers** (on by default): in `icon` or `space` style, the item switches to `activity` while a transfer runs (over 1 MB/s for 3 s) and switches back 10 s after it ends. The item's width is reserved for both, so nothing moves: with the trace on, `icon` reserves about 68 pt. As soon as a 5 s check sees more than 1 MB/s, sampling goes to every second to confirm it, so a transfer shows within about 3–8 s. Any I/O over the threshold counts, including Spotlight reading a large file just copied (M4).
+- **Show activity during transfers** (on by default): in `icon` or `space` style, the item switches to `activity` while a transfer runs (over 1 MB/s for 3 s) and switches back 10 s after it ends. The item's width is reserved for both, so nothing moves. The switched-to view is rates only, without the trace, so `icon` reserves 44 pt and `space` 48 pt, padding included (with the trace both took 76 pt, mostly empty while idle; changed after 0.2.0). As soon as a 5 s check sees more than 1 MB/s, sampling goes to every second to confirm it, so a transfer shows within about 3–8 s. Any I/O over the threshold counts, including Spotlight reading a large file just copied (M4).
 - When any visible volume is below the low-space threshold, the glyph gets a `!` mark (`externaldrive.badge.exclamationmark`). No color. In `space` style, which has no glyph, the caption gets a `!` when the pinned volume is low (`RAID!`).
 - Click opens the popover. Right-click or Control-click opens a small menu: Eject All, Open, Settings, Copy Diagnostics, Check for Updates, Quit. Settings opens the popover on its settings panel. Check for Updates arrives with Sparkle (M8).
 - Optional: hide the item when no external drives are attached.
@@ -184,7 +184,7 @@ Shown in the popover (an inline settings panel, as in flatline), stored in `User
 | Menu bar style | icon, space, activity, space+activity | icon |
 | Pinned volume (for `space`) | any visible volume | first external, else the boot volume |
 | Show activity during transfers | on / off | on |
-| Activity trace (the graph beside the rates) | on / off | on |
+| Activity trace (the graph beside the rates, in the `activity` and `space+activity` styles) | on / off | on |
 | Units (space and rates) | decimal (GB, MB/s, like Finder), binary (GiB, MiB/s) | decimal |
 | Low-space threshold | 5 %, 10 %, 20 %, or a fixed amount in GB | 10 % |
 | Notifications | Low space, Transfer finished | off |

@@ -131,6 +131,15 @@ import Testing
         #expect(MenuBarStyle.spaceActivity.effective(pinnedMounted: false, transferring: false, activityDuringTransfers: true) == .activity)
     }
 
+    @Test func onlyActivityStylesDrawTheTrace() {
+        #expect(MenuBarStyle.activity.showsTrace(traceOn: true))
+        #expect(MenuBarStyle.spaceActivity.showsTrace(traceOn: true))
+        #expect(!MenuBarStyle.activity.showsTrace(traceOn: false))
+        // Icon and space switch to rates alone during a transfer.
+        #expect(!MenuBarStyle.icon.showsTrace(traceOn: true))
+        #expect(!MenuBarStyle.space.showsTrace(traceOn: true))
+    }
+
     @Test func reservesWidthForEveryStyleItCanShow() {
         #expect(MenuBarStyle.icon.reserved(activityDuringTransfers: true) == [.icon, .activity])
         #expect(MenuBarStyle.icon.reserved(activityDuringTransfers: false) == [.icon])

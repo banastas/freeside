@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The menu bar item takes less room in the Icon and Space styles: 44 and 48 pt instead of 76 pt. During a transfer, the Icon and Space styles show the rates without the trace; the Activity styles keep it.
+
 ## 0.2.0 (2026-10-28)
 
 - Uses far less CPU: about 0.13 % while showing live rates, down from 1.8 %. Free space is no longer re-read in full every time a drive writes, and the menu bar no longer redraws several times per update.
