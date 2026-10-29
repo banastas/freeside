@@ -3,6 +3,24 @@
     <channel>
         <title>freeside</title>
         <item>
+            <title>0.2.1</title>
+            <pubDate>Wed, 28 Oct 2026 19:10:55 -0700</pubDate>
+            <link>https://freeside.banast.as</link>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>27.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<ul>
+  <li>The menu bar item takes less room in the Icon and Space styles: 44 and 48 pt instead of 76 pt. During a transfer, the Icon and Space styles show the rates without the trace; the Activity styles keep it.</li>
+</ul>
+]]></description>
+            <enclosure url="https://freeside.banast.as/releases/freeside-0.2.1.dmg" length="3523329" type="application/octet-stream" sparkle:edSignature="fx3wCrGeW5FVISMmp/cUGa7fR+/9TwNl+aIMTepTzr+8iLXeSwGNvfR6LTJgGQ/DcabF4XyTkLVsf68wdR4BDg=="/>
+            <sparkle:deltas>
+                <enclosure url="https://freeside.banast.as/releases/freeside4-3.delta" sparkle:deltaFrom="3" length="48958" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="GNBULznEoTPGjd3Gcfp/p2DtSSWvx/HSC6ddT6OJ9BfbMTWp/hUmzWnsDuBDGmbAwtKUyTJgPnhQew1thppXCg=="/>
+                <enclosure url="https://freeside.banast.as/releases/freeside4-2.delta" sparkle:deltaFrom="2" length="1247390" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="olxfQCeAvaBX3OVDaCqH6qqIsbdmcvQLVK9sHQKnL1PI/e8898RQ7abvtomxrFnxXO1FES3PCOplOVl2DyHKDg=="/>
+                <enclosure url="https://freeside.banast.as/releases/freeside4-1.delta" sparkle:deltaFrom="1" length="1246262" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="PNJYk1yq8ej4lFu2r46yYhoNF0kBHs+XZ1/MYdfJz4LZCutfJGceu6mJe3RK7z0VrsOyn+4YS8f09Mn71UVkCg=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>0.2.0</title>
             <pubDate>Wed, 28 Oct 2026 15:20:19 -0700</pubDate>
             <link>https://freeside.banast.as</link>
@@ -37,27 +55,6 @@
             <sparkle:deltas>
                 <enclosure url="https://freeside.banast.as/releases/freeside2-1.delta" sparkle:deltaFrom="1" length="10894" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="M4QDH+0ZWup5Y+Kw36MQ0sIhF4OKn9rzszyju8Xs9Q0kxE3T+PHxhJAicuMc57kuSFh84Yebm45Z/9VdWH6nBg=="/>
             </sparkle:deltas>
-        </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Wed, 28 Oct 2026 13:08:59 -0700</pubDate>
-            <link>https://freeside.banast.as</link>
-            <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>27.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<p>The first preview release.</p>
-<ul>
-  <li>Free space for external drives, disk images, network shares and the internal disk, matching Finder, with a mark when a volume runs low</li>
-  <li>Read and write rates for each physical drive, with a 60-second trace and session totals</li>
-  <li>Eject and Eject All, done the way Finder does; when a drive won't eject, a list of the apps and processes holding it and the files they have open, with Quit, Terminate, Retry and Force Eject</li>
-  <li>"Who's using this?" for any drive, without ejecting</li>
-  <li>Menu bar shows a drive icon, free space on one volume, live rates, or both, and switches to rates during a copy</li>
-  <li>Optional notifications for low space and for a finished copy of 1 GB or more</li>
-  <li>Copy Diagnostics for bug reports, with no file paths in it</li>
-  <li>Signed, notarized and updated automatically</li>
-</ul>
-]]></description>
-            <enclosure url="https://freeside.banast.as/releases/freeside-0.1.0.dmg" length="1614243" type="application/octet-stream" sparkle:edSignature="tEatUyi8b/5PJVGdiWYBwn0ia/knIIE6d/08rTXtNM0kH4Ut2lNJxpxojnTA54C95Jcmf3MzqQ0HtNlc/iZEBg=="/>
         </item>
     </channel>
 </rss>
