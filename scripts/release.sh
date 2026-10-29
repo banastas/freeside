@@ -9,15 +9,15 @@
 #
 # Release notes come from the "## <version>" section of CHANGELOG.md. Updates
 # are signed with the EdDSA key in the keychain under account "freeside".
-# Notarization reads credentials from a keychain profile (default "freeside",
-# override with NOTARY_PROFILE; flatline's profile holds the same team's
-# credentials). Create it once with:
-#   xcrun notarytool store-credentials freeside --team-id F87BNUZAVJ
+# Notarization reads credentials from flatline's keychain profile, which holds
+# the same team's credentials (override with NOTARY_PROFILE). Create a profile
+# once with:
+#   xcrun notarytool store-credentials <name> --team-id F87BNUZAVJ
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 TEAM_ID=F87BNUZAVJ
-PROFILE=${NOTARY_PROFILE:-freeside}
+PROFILE=${NOTARY_PROFILE:-flatline}
 NOTARIZE=1
 [[ ${1:-} == --skip-notarize ]] && NOTARIZE=0
 
@@ -65,7 +65,7 @@ IDENTITY=$(security find-identity -v -p codesigning | sed -nE "s/.*\"(Developer 
 [[ -n $IDENTITY ]] || fail "no Developer ID Application certificate for team $TEAM_ID in the keychain"
 if (( NOTARIZE )); then
     xcrun notarytool history --keychain-profile "$PROFILE" >/dev/null 2>&1 \
-        || fail "no notary credentials in keychain profile '$PROFILE'; run: xcrun notarytool store-credentials $PROFILE --team-id $TEAM_ID (or set NOTARY_PROFILE=flatline)"
+        || fail "no notary credentials in keychain profile '$PROFILE'; run: xcrun notarytool store-credentials $PROFILE --team-id $TEAM_ID (or set NOTARY_PROFILE)"
     [[ ! -e $RELEASES/freeside-$VERSION.dmg ]] \
         || fail "$VERSION is already in $RELEASES/; run scripts/bump-version.sh first"
     NOTES=$(release_notes_html)
