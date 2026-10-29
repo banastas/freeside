@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-10-28)
 
 - The menu bar item takes less room in the Icon and Space styles: 44 and 48 pt instead of 76 pt. During a transfer, the Icon and Space styles show the rates without the trace; the Activity styles keep it.
 
