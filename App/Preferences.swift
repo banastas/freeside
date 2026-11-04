@@ -59,7 +59,7 @@ final class Preferences {
         defaults.register(defaults: [
             "activityDuringTransfers": true,
             "activityTrace": true,
-            "volumesShown": [VolumeKind.external, .diskImage, .internal].map(\.rawValue),
+            "volumesShown": [VolumeKind.external, .diskImage, .internal, .network].map(\.rawValue),
         ])
         menuBarStyle = Self.load(defaults, "menuBarStyle", .icon)
         pinnedVolumeID = defaults.string(forKey: "pinnedVolumeID")

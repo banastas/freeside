@@ -180,7 +180,7 @@ Shown in the popover (an inline settings panel, as in flatline), stored in `User
 
 | Setting | Options | Default |
 |---|---|---|
-| Volumes shown | External, Disk images, Internal, Network (multi-select) | External, Disk images, Internal |
+| Volumes shown | External, Disk images, Internal, Network (multi-select) | All four (Network added 2026-11-04: with it off, a mounted NAS looked missing rather than hidden) |
 | Menu bar style | icon, space, activity, space+activity | icon |
 | Pinned volume (for `space`) | any visible volume | first external, else the boot volume |
 | Show activity during transfers | on / off | on |
@@ -368,7 +368,7 @@ Not available for 1.0 and checked after it, from user reports or when the hardwa
 | M8 | Updates + site | Sparkle wired up; site deployed with appcast; an update tested end to end |
 | M9 | 1.0 | §8 budgets verified; §9 criteria verified on the §9.1 hardware; README screenshots; tagged release |
 
-**M9 progress (2026-11-04):** the tick profiler is in, and the first §8 measurements found and fixed a CPU problem (§8). App icon, README and site screenshots are done. A week of use averaged 0.04 % CPU; memory and popover budgets were revised after measurement (§8). §9.1 is narrowed to the hardware at hand; the USB SSD, HFS+, disk image and sparsebundle checks pass. Still to do: an SMB share whose server goes away, ejecting and replugging a real drive, VoiceOver; then 1.0.0, released, deployed and tagged.
+**M9 progress (2026-11-04):** the tick profiler is in, and the first §8 measurements found and fixed a CPU problem (§8). App icon, README and site screenshots are done. A week of use averaged 0.04 % CPU; memory and popover budgets were revised after measurement (§8). §9.1 is narrowed to the hardware at hand; the USB SSD, HFS+, disk image and sparsebundle checks pass, including ejecting the HFS+ T9 from the popover and plugging it back in. SMB server powered off with the share mounted (2026-11-04): the installed app's main thread stayed idle in every sample, a fresh read timed out instead of hanging, macOS went on returning the share's cached figures for about a minute, then unmounted it and freeside dropped it from the list. Still to do: VoiceOver; then 1.0.0, released, deployed and tagged.
 
 ## 12. Decisions
 

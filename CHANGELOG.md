@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Network shares are shown by default. If you haven't changed "Volumes shown" in settings, they now appear in the popover; turn off "network" there to hide them again.
+
 ## 0.2.1 (2026-10-28)
 
 - The menu bar item takes less room in the Icon and Space styles: 44 and 48 pt instead of 76 pt. During a transfer, the Icon and Space styles show the rates without the trace; the Activity styles keep it.
