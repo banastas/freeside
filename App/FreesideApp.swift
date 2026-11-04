@@ -43,8 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         offerLaunchAtLoginOnce()
         // Once the status item has a window for the popover to anchor to.
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [volumes, drives, ejector] in
-            if Dump.cyclesPopover {
-                for index in 0..<10 {
+            if let cycles = Dump.popoverCycles {
+                for index in 0..<cycles {
                     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(index * 1500)) { statusItem.showPopover() }
                     DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(index * 1500 + 1000)) { statusItem.closePopover() }
                 }

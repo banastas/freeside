@@ -38,7 +38,11 @@ enum Dump {
     static var opensPopover: Bool { environment["FREESIDE_POPOVER"] != nil }
     static var expandsInternal: Bool { environment["FREESIDE_POPOVER"] == "internal" }
     static var opensSettings: Bool { environment["FREESIDE_POPOVER"] == "settings" }
-    static var cyclesPopover: Bool { environment["FREESIDE_POPOVER"] == "cycle" }
+    /// `cycle` opens and closes the popover ten times; `cycle=<n>`, n times.
+    static var popoverCycles: Int? {
+        guard let value = environment["FREESIDE_POPOVER"], value.hasPrefix("cycle") else { return nil }
+        return Int(value.dropFirst("cycle=".count)) ?? 10
+    }
 
     static var inspectPath: String? { environment["FREESIDE_INSPECT"] ?? environment["FREESIDE_EJECT"] }
 

@@ -289,11 +289,11 @@ Measured on an M-series Mac, popover closed:
 | Idle wake-ups, no external drives, `icon` style | 0, apart from Sparkle's scheduled check |
 | Average CPU, drive attached, idle | < 0.05 % of one core |
 | Average CPU, during a transfer, 1 s tick | < 0.1 % of one core |
-| Resident memory | < 30 MB |
+| Resident memory | < 50 MB after a week of use, with the popover opened (raised from 30 MB on 2026-11-04; see the memory note below) |
 | Blocker scan | < 100 ms with 600 processes; never on the main thread. The mapped-file pass, which runs only when nothing else holds the drive, takes about 180 ms and is outside this budget (§6.1). |
 | Popover open → first frame | < 50 ms |
 
-Checked before each release with Instruments and with a tick profiler: run the binary with `FREESIDE_PROFILE=1`, as with flatline. It prints average CPU per tick phase (counters, a11y, layout, render) every 60 ticks, and each popover opening's time to first frame; `FREESIDE_POPOVER=cycle` opens and closes the popover ten times.
+Checked before each release with Instruments and with a tick profiler: run the binary with `FREESIDE_PROFILE=1`, as with flatline. It prints average CPU per tick phase (counters, a11y, layout, render) every 60 ticks, and each popover opening's time to first frame; `FREESIDE_POPOVER=cycle` opens and closes the popover ten times (`cycle=<n>`, n times).
 
 **Measured in M9 (2026-10-28, Mac mini M2 Pro, Release build, three USB drives):**
 
@@ -301,12 +301,19 @@ Checked before each release with Instruments and with a tick profiler: run the b
 |---|---|---|
 | Average CPU, 1 s tick (Activity style) | 0.13 % | Over 5 min, with a steady ~5 MB/s write to an external drive from another app |
 | Average CPU, Icon style | 0.12 % | The same 5 min; the external write kept it on the 1 s tick too, so the idle case (5 s check, budget 0.05 %) is still to measure with the drives quiet |
-| Resident memory | 14–16 MB | `top`'s memory footprint |
+| Resident memory | 14–16 MB at launch; 48 MB after 7 days | `top`'s memory footprint. No leak; see the note below |
 | Blocker scan | 27 ms, 666 processes | `scanCost` test; mapped-file pass 204 ms |
 | Popover open → first frame | 58–80 ms warm, 117–157 ms the first time | Measured with the Mac under heavy load (load average 9–11); `popover.show` alone took ~50 ms of SwiftUI layout. Over budget; re-measure on a quiet Mac |
 | No external drives | not measured | Needs every external drive unplugged |
 
 The first measurement was 0.57 % and 1.8 %. The causes, all fixed: every sample that saw any write (the internal disk writes a little all the time) re-read that volume's space with `volumeAvailableCapacityForImportantUsageKey`, which makes macOS work out purgeable space (~11 ms of CPU on the boot volume, ~3 ms on an external APFS drive, plus work in `cache_delete`); each space change re-mapped every volume to its drive through IOKit; an unchanged space value still woke every observer; and the status item watched the whole drive list, so it redrew ~3.7 times per tick. Now space is re-read only for a drive writing over 1 MB/s, with plain capacity keys (0.2 ms / 9 µs) and Finder's figure estimated from the last full read; the full read follows a write only while space is on screen; while it isn't, a writing drive's space is followed every 5 s; `remap` runs only when the volumes themselves change; and the status item watches a `hasExternal` flag. Each card's ⋯ menu is a plain button that builds an `NSMenu` when clicked: a SwiftUI `Menu` cost ~4 ms per card on every opening.
+
+**Memory after a week (2026-11-04).** The installed 0.2.0 had a 48 MB footprint after 6 days 17 hours of use (flatline, which shares the menu bar code: 44.5 MB after 8½ days). `leaks` found 15 KB. The growth is in system frameworks, and both parts level off:
+
+- **First popover opening: about +16 MB, once.** SwiftUI, Metal and font machinery loading for the first time, plus freed malloc pages that stay with the process. Footprint after 10, 40, 80 and 160 openings (`FREESIDE_POPOVER=cycle=<n>`, Release build): 30, 31, 32, 33 MB; memory in use after 160 openings (9.6 MB) was lower than after 40 (13.0 MB). `malloc_zone_pressure_relief` after closing returned nothing, because the free memory is spread across pages still in use.
+- **ColorSync tables: up to about 11 MB.** 272 KB conversion tables, 21 at launch and 78 after the week. AppKit builds one set when a window works out its colour gamut (`NSWindow _setColorSpace` → `colorGamut`), and Core Graphics another when it colour-matches an image, for each new pair of colour spaces; a display profile changing over the day adds pairs. Both caches have limits: 45 and 90 tables however many colour spaces were used (tested up to 400), about 3.4 MB and 7.5 MB of footprint.
+
+So steady-state memory is about 30–45 MB, almost all of it system frameworks. The original 30 MB budget was set before the popover existed; it is now 50 MB, since getting under 30 MB would mean replacing the SwiftUI popover with AppKit.
 
 ## 9. Accuracy acceptance criteria
 
