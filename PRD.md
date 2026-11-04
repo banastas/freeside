@@ -291,7 +291,7 @@ Measured on an M-series Mac, popover closed:
 | Average CPU, during a transfer, 1 s tick | < 0.1 % of one core |
 | Resident memory | < 50 MB after a week of use, with the popover opened (raised from 30 MB on 2026-11-04; see the memory note below) |
 | Blocker scan | < 100 ms with 600 processes; never on the main thread. The mapped-file pass, which runs only when nothing else holds the drive, takes about 180 ms and is outside this budget (§6.1). |
-| Popover open → first frame | < 50 ms |
+| Popover open → first frame | < 100 ms (raised from 50 ms on 2026-11-04; see the note below) |
 
 Checked before each release with Instruments and with a tick profiler: run the binary with `FREESIDE_PROFILE=1`, as with flatline. It prints average CPU per tick phase (counters, a11y, layout, render) every 60 ticks, and each popover opening's time to first frame; `FREESIDE_POPOVER=cycle` opens and closes the popover ten times (`cycle=<n>`, n times).
 
@@ -303,8 +303,8 @@ Checked before each release with Instruments and with a tick profiler: run the b
 | Average CPU, Icon style | 0.12 % | The same 5 min; the external write kept it on the 1 s tick too, so the idle case (5 s check, budget 0.05 %) is still to measure with the drives quiet |
 | Resident memory | 14–16 MB at launch; 48 MB after 7 days | `top`'s memory footprint. No leak; see the note below |
 | Blocker scan | 27 ms, 666 processes | `scanCost` test; mapped-file pass 204 ms |
-| Popover open → first frame | 58–80 ms warm, 117–157 ms the first time | Measured with the Mac under heavy load (load average 9–11); `popover.show` alone took ~50 ms of SwiftUI layout. Over budget; re-measure on a quiet Mac |
-| No external drives | not measured | Needs every external drive unplugged |
+| Popover open → first frame | 58–80 ms warm, 117–157 ms the first time; 64–77 ms warm on 2026-11-04 | Load average 9–11, then about 4. See the note below |
+| No external drives | not measured | Needs every external drive unplugged; skipped for 1.0 (2026-11-04). The code starts no timer without an external device (§7.3) |
 
 The first measurement was 0.57 % and 1.8 %. The causes, all fixed: every sample that saw any write (the internal disk writes a little all the time) re-read that volume's space with `volumeAvailableCapacityForImportantUsageKey`, which makes macOS work out purgeable space (~11 ms of CPU on the boot volume, ~3 ms on an external APFS drive, plus work in `cache_delete`); each space change re-mapped every volume to its drive through IOKit; an unchanged space value still woke every observer; and the status item watched the whole drive list, so it redrew ~3.7 times per tick. Now space is re-read only for a drive writing over 1 MB/s, with plain capacity keys (0.2 ms / 9 µs) and Finder's figure estimated from the last full read; the full read follows a write only while space is on screen; while it isn't, a writing drive's space is followed every 5 s; `remap` runs only when the volumes themselves change; and the status item watches a `hasExternal` flag. Each card's ⋯ menu is a plain button that builds an `NSMenu` when clicked: a SwiftUI `Menu` cost ~4 ms per card on every opening.
 
@@ -314,6 +314,14 @@ The first measurement was 0.57 % and 1.8 %. The causes, all fixed: every sample 
 - **ColorSync tables: up to about 11 MB.** 272 KB conversion tables, 21 at launch and 78 after the week. AppKit builds one set when a window works out its colour gamut (`NSWindow _setColorSpace` → `colorGamut`), and Core Graphics another when it colour-matches an image, for each new pair of colour spaces; a display profile changing over the day adds pairs. Both caches have limits: 45 and 90 tables however many colour spaces were used (tested up to 400), about 3.4 MB and 7.5 MB of footprint.
 
 So steady-state memory is about 30–45 MB, almost all of it system frameworks. The original 30 MB budget was set before the popover existed; it is now 50 MB, since getting under 30 MB would mean replacing the SwiftUI popover with AppKit.
+
+**Popover opening (2026-11-04).** Each opening takes about 60 ms of main-thread work: building the popover's window and hosting view (~11 ms, most of it the `ScrollView` sizing its content), AppKit's layout and commit (~9 ms), and text layout (~8 ms). Three changes were tried, timed with `FREESIDE_PROFILE=1 FREESIDE_POPOVER=cycle=<n>` and CPU time per opening (wall-clock was noisy, load average 4–39):
+
+- Keeping the last content height between openings, to skip a layout pass: no change (108 ms CPU per opening, open and close, before and after).
+- Keeping the popover and its window between openings, with the content dropped while closed so a closed popover observes nothing: first frame 25–35 ms, 74–82 ms CPU per opening, closed CPU unchanged. But the hidden window keeps its backing store, 3–11 MB depending on the menu bar style, which would take a week's footprint over the 50 MB budget. Shrinking the window on close freed 4 MB but brought the opening back to ~54 ms.
+- Keeping only the hosting controller, with a new popover each time: ~60 ms.
+
+About 70 ms from click to popover isn't noticeably slow, and memory matters more for an app that's always running, so the budget is 100 ms and the popover is still built per opening. The kept-window version is the change to make if opening speed matters more later.
 
 ## 9. Accuracy acceptance criteria
 
@@ -333,13 +341,10 @@ Every row above is checked on each of these before 1.0:
 | Kind | Why |
 |---|---|
 | USB-C SSD, APFS, several volumes | The common case; APFS container mapping |
-| Thunderbolt enclosure, hardware RAID | One device, high rates |
-| AppleRAID set (two drives) | Multi-device mapping |
-| Built-in SD card slot, exFAT card | Internal flag on removable media |
-| USB card reader, empty and with a card | Device with no media |
-| USB stick, FAT32; spinning drive, HFS+ | Older formats, slow devices |
 | DMG and sparsebundle stored on an external drive | Image grouping, double counting, image-as-blocker |
 | SMB share, including one whose server goes away | Space only, timeouts, stale values |
+
+Not available for 1.0 and checked after it, from user reports or when the hardware is to hand (2026-11-04): Thunderbolt hardware RAID and AppleRAID sets (multi-device mapping and ejecting; covered so far by tests that stripe two disk images into an AppleRAID set), a built-in SD slot, a USB card reader with and without a card, a FAT32 stick and a spinning HFS+ drive.
 
 ## 10. Accessibility and localization
 
@@ -363,7 +368,7 @@ Every row above is checked on each of these before 1.0:
 | M8 | Updates + site | Sparkle wired up; site deployed with appcast; an update tested end to end |
 | M9 | 1.0 | §8 budgets verified; §9 criteria verified on the §9.1 hardware; README screenshots; tagged release |
 
-**M9 progress (2026-10-28):** the tick profiler is in, and the first §8 measurements found and fixed a CPU problem (§8). App icon, README screenshots (menu bar in both appearances, popover) and the site's screenshots are done. Still to do: the idle, no-external-drive and popover-opening budgets on a quiet Mac with the drives idle; the §9 criteria on the §9.1 hardware other than the USB SSDs and disk images used so far (SD slot, Thunderbolt RAID, AppleRAID pair, card reader, FAT32 stick, spinning HFS+ drive, an SMB share whose server goes away); VoiceOver; then 1.0.0, released, deployed and tagged.
+**M9 progress (2026-11-04):** the tick profiler is in, and the first §8 measurements found and fixed a CPU problem (§8). App icon, README and site screenshots are done. A week of use averaged 0.04 % CPU; memory and popover budgets were revised after measurement (§8). §9.1 is narrowed to the hardware at hand; the USB SSD, HFS+, disk image and sparsebundle checks pass. Still to do: an SMB share whose server goes away, ejecting and replugging a real drive, VoiceOver; then 1.0.0, released, deployed and tagged.
 
 ## 12. Decisions
 

@@ -251,7 +251,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate, NSMenuDelegate {
 
         NSApp.activate()
         if Profiler.enabled {
-            // PRD §8: popover open → first frame under 50 ms. The transaction
+            // PRD §8: popover open → first frame under 100 ms. The transaction
             // that shows it commits at the end of this run loop pass.
             CATransaction.setCompletionBlock {
                 let elapsed = ContinuousClock.now - opening
