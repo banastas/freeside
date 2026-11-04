@@ -7,7 +7,7 @@
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
 | **Site / updates** | https://freeside.banast.as |
-| **Siblings** | [flatline](https://github.com/banastas/flatline) (CPU, memory, network), straylight (network quality) |
+| **Sibling** | [flatline](https://github.com/banastas/flatline) (CPU, memory, network) |
 
 ---
 
@@ -379,7 +379,7 @@ Not available for 1.0 and checked after it, from user reports or when the hardwa
 | Hosting | **Cloudflare Pages** at freeside.banast.as, same as flatline (2026-10-25) |
 | License | **MIT** (2026-10-25) |
 | Menu bar colors | **Monochrome**, for the same reason as flatline (2026-10-25) |
-| Shared code with flatline | **Copy** `RingBuffer`, `Format`, the menu bar rendering approach and the release scripts (about 110 lines of Swift plus scripts). A shared package (working name `sprawl`) isn't worth versioning across three repos for that much code; revisit when straylight is built (2026-10-28) |
+| Shared code with flatline | **Copy** `RingBuffer`, `Format`, the menu bar rendering approach and the release scripts (about 110 lines of Swift plus scripts). A shared package isn't worth versioning across repos for that much code (2026-10-28) |
 
 ## 13. Open questions
 
