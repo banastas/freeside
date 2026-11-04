@@ -1,0 +1,115 @@
+<!doctype html>
+<!--
+  GitHub social preview for the repo (1280×640), laid out like flatline's.
+  GitHub crops up to 40pt (80px here) from each edge, so everything that
+  matters sits inside .safe.
+
+  Render to site/social.png with any Chromium browser:
+    "/Applications/Brave Browser.app/Contents/MacOS/Brave Browser" --headless \
+      --hide-scrollbars --force-device-scale-factor=1 --window-size=1280,640 \
+      --screenshot=site/social.png scripts/social-card.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>freeside social card</title>
+<style>
+  :root {
+    --bg: #07090a;
+    --text: #d9e4de;
+    --dim: #82948d;
+    --faint: #56665f;
+    --phosphor: #33f273;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; width: 1280px; height: 640px; overflow: hidden; }
+  body {
+    position: relative;
+    background:
+      radial-gradient(700px 460px at 84% 45%, rgb(51 242 115 / 0.13), transparent 70%),
+      radial-gradient(900px 500px at 10% 110%, rgb(51 242 115 / 0.06), transparent 70%),
+      var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* The icon's grid, faded toward the edges */
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgb(51 242 115 / 0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(51 242 115 / 0.07) 1px, transparent 1px);
+    background-size: 80px 80px;
+    background-position: -1px -1px;
+    mask-image: radial-gradient(1000px 560px at 50% 50%, #000 30%, transparent 85%);
+  }
+
+  .safe {
+    position: absolute; inset: 80px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 244px;
+    gap: 72px;
+    align-items: center;
+  }
+
+  .brand { display: flex; align-items: center; gap: 18px; margin-bottom: 30px; }
+  .brand img { width: 68px; height: 68px; display: block; }
+  .brand span { font-size: 40px; font-weight: 600; color: #fff; letter-spacing: -0.01em; }
+
+  h1 {
+    margin: 0;
+    font-size: 52px;
+    line-height: 1.08;
+    letter-spacing: -0.025em;
+    color: #fff;
+  }
+  .lede { margin: 20px 0 0; font-size: 22px; line-height: 1.45; color: var(--dim); }
+
+  /* The icon's capacity bar */
+  .capacity { margin: 28px 0 18px; max-width: 600px; }
+  .capacity .row { display: flex; justify-content: space-between; font-size: 17px; color: var(--dim); margin-bottom: 10px; }
+  .capacity .row b { color: #fff; font-weight: 500; }
+  .capacity .track {
+    height: 22px; border-radius: 6px;
+    border: 2px solid rgb(51 242 115 / 0.45);
+    padding: 3px;
+  }
+  .capacity .fill {
+    height: 100%; width: 61%; border-radius: 3px;
+    background: var(--phosphor);
+    box-shadow: 0 0 12px rgb(51 242 115 / 0.65);
+  }
+
+  .meta { font-size: 18px; color: var(--faint); }
+  .meta b { color: var(--phosphor); font-weight: 500; }
+
+  .shot img {
+    display: block; width: 244px; height: auto;
+    filter: drop-shadow(0 18px 40px rgb(0 0 0 / 0.6));
+  }
+</style>
+</head>
+<body>
+  <div class="grid"></div>
+  <div class="safe">
+    <div>
+      <div class="brand">
+        <img src="../site/icon.png" alt="">
+        <span>freeside</span>
+      </div>
+      <h1>Free space, speed,<br>and who's holding<br>the drive.</h1>
+      <p class="lede">A small menu bar drive monitor<br>for Apple Silicon Macs.</p>
+      <div class="capacity" aria-hidden="true">
+        <div class="row"><span>Photography <span style="color: var(--faint)">APFS</span></span><b>2.4 TB free</b></div>
+        <div class="track"><div class="fill"></div></div>
+      </div>
+      <p class="meta"><b>↓</b> freeside.banast.as</p>
+    </div>
+    <div class="shot">
+      <img src="../site/screenshots/popover.png" alt="">
+    </div>
+  </div>
+</body>
+</html>

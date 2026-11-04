@@ -10,7 +10,7 @@ A small menu bar app for Apple Silicon Macs that watches your drives: **free spa
     <img src="site/screenshots/menubar-light.png" width="114" alt="freeside in the menu bar: a volume named 128GB with 40 gigabytes free, a write trace, reading 53 kilobytes and writing 988 megabytes per second">
   </picture>
   <br><br>
-  <img src="site/screenshots/popover.png" width="366" alt="freeside's popover: three USB drives, each with read and write rates, a 60-second trace, session totals, an eject button and its volume's free space; one is writing at 974 megabytes per second">
+  <img src="site/screenshots/popover.png" width="366" alt="freeside's popover: two USB drives, each with read and write rates, a 60-second trace, session totals, an eject button and its volume's free space, then a network share and the internal disk; one drive is writing at 964 megabytes per second">
 </p>
 
 freeside is a sibling to [flatline](https://github.com/banastas/flatline) and follows the same rules: one narrow job, Apple Silicon and macOS 27 only, no root helper, and close to zero cost when nothing is happening.
