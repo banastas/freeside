@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Draft v0.3: building (M8 done: 0.1.0 and 0.1.1 published; Transfer finished fully asleep and M1's SD slot check pending) |
+| **Status** | 1.0.0 released (2026-11-04). Checked after 1.0: VoiceOver, the §9.1 hardware not yet at hand, Transfer finished with the Mac fully asleep |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |
@@ -368,7 +368,7 @@ Not available for 1.0 and checked after it, from user reports or when the hardwa
 | M8 | Updates + site | Sparkle wired up; site deployed with appcast; an update tested end to end |
 | M9 | 1.0 | §8 budgets verified; §9 criteria verified on the §9.1 hardware; README screenshots; tagged release |
 
-**M9 progress (2026-11-04):** the tick profiler is in, and the first §8 measurements found and fixed a CPU problem (§8). App icon, README and site screenshots are done. A week of use averaged 0.04 % CPU; memory and popover budgets were revised after measurement (§8). §9.1 is narrowed to the hardware at hand; the USB SSD, HFS+, disk image and sparsebundle checks pass, including ejecting the HFS+ T9 from the popover and plugging it back in. SMB server powered off with the share mounted (2026-11-04): the installed app's main thread stayed idle in every sample, a fresh read timed out instead of hanging, macOS went on returning the share's cached figures for about a minute, then unmounted it and freeside dropped it from the list. Still to do: VoiceOver; then 1.0.0, released, deployed and tagged.
+**M9 progress (2026-11-04):** the tick profiler is in, and the first §8 measurements found and fixed a CPU problem (§8). App icon, README and site screenshots are done. A week of use averaged 0.04 % CPU; memory and popover budgets were revised after measurement (§8). §9.1 is narrowed to the hardware at hand; the USB SSD, HFS+, disk image and sparsebundle checks pass, including ejecting the HFS+ T9 from the popover and plugging it back in. SMB server powered off with the share mounted (2026-11-04): the installed app's main thread stayed idle in every sample, a fresh read timed out instead of hanging, macOS went on returning the share's cached figures for about a minute, then unmounted it and freeside dropped it from the list. A VoiceOver pass is deferred to after 1.0 (2026-11-04); the menu bar item and the popover's controls have accessibility labels. 1.0.0 released, deployed and tagged on 2026-11-04.
 
 ## 12. Decisions
 

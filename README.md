@@ -15,11 +15,11 @@ A small menu bar app for Apple Silicon Macs that watches your drives: **free spa
 
 freeside is a sibling to [flatline](https://github.com/banastas/flatline) and follows the same rules: one narrow job, Apple Silicon and macOS 27 only, no root helper, and close to zero cost when nothing is happening.
 
-**Status:** preview. 0.1.1 is out at [freeside.banast.as](https://freeside.banast.as) and updates itself; 1.0 waits on the checks in the [PRD](PRD.md)'s M9 (performance budgets on a quiet Mac and accuracy on more kinds of drives).
+**Status:** 1.0. Download it from [freeside.banast.as](https://freeside.banast.as); it updates itself. The [PRD](PRD.md) lists what was checked on which hardware (§9.1) and what's measured against its budgets (§8).
 
 ## Features
 
-- **Free space** for external drives, disk images and the internal disk, matching what Finder shows (including purgeable space on APFS)
+- **Free space** for external drives, disk images, network shares and the internal disk, matching what Finder shows (including purgeable space on APFS)
 - **Read/write speed** per physical drive, with a 60-second trace, for card offloads and project copies
 - **Eject blockers**: when an eject fails, see which apps and processes are holding the drive and which files they have open, then quit them, retry, or force eject
 - **Who's using this?** on any volume, without ejecting

@@ -1,6 +1,8 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 (2026-11-04)
+
+The first stable release. Since 0.2.1:
 
 - Network shares are shown by default. If you haven't changed "Volumes shown" in settings, they now appear in the popover; turn off "network" there to hide them again.
 
