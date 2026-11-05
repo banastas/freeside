@@ -1,6 +1,6 @@
 # freeside
 
-A small menu bar app for Apple Silicon Macs that watches your drives: **free space**, **live read/write speed**, and **what's stopping a drive from ejecting**.
+freeside watches your drives from the menu bar: **free space**, **live read/write speed**, and **what's stopping a drive from ejecting**. For Apple Silicon Macs.
 
 > "The disk wasn't ejected because one or more programs may be using it." freeside tells you which ones.
 
