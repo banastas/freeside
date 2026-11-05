@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | 1.0.0 released (2026-11-04). Checked after 1.0: VoiceOver, the §9.1 hardware not yet at hand, Transfer finished with the Mac fully asleep |
+| **Status** | 1.0.1 released (2026-11-04). Checked after 1.0: VoiceOver, the §9.1 hardware not yet at hand, Transfer finished with the Mac fully asleep |
 | **Owner** | Bill Anastas |
 | **Last updated** | 2026-10-28 |
 | **Repo** | [banastas/freeside](https://github.com/banastas/freeside) |

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.1 (2026-11-04)
 
 - Settings → Notifications has "play a sound" to silence the Transfer finished alert. It's on by default; Low space was already silent.
 
