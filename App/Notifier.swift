@@ -85,7 +85,7 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
             id: "transfer-\(drive.id)-\(Date.now.timeIntervalSince1970)",
             title: "Finished writing to \(drive.name)",
             body: "\(size) in \(time).",
-            sound: true
+            sound: preferences.notificationSound
         )
     }
 

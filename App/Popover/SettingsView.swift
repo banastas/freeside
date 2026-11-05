@@ -90,6 +90,8 @@ struct SettingsView: View {
             Section(title: "NOTIFICATIONS") {
                 Toggle("low space", isOn: notification(\.notifyLowSpace))
                 Toggle("transfer finished (1 GB or more)", isOn: notification(\.notifyTransferFinished))
+                Toggle("play a sound", isOn: $preferences.notificationSound)
+                    .disabled(!preferences.notifyTransferFinished)
                 if notifier.isDenied, preferences.notifyLowSpace || preferences.notifyTransferFinished {
                     VStack(alignment: .leading, spacing: 4) {
                         Text("Notifications are turned off for freeside in System Settings.")

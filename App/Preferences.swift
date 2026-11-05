@@ -51,6 +51,8 @@ final class Preferences {
     var accent: Accent { didSet { save(accent.rawValue, "accent") } }
     var notifyLowSpace: Bool { didSet { save(notifyLowSpace, "notifyLowSpace") } }
     var notifyTransferFinished: Bool { didSet { save(notifyTransferFinished, "notifyTransferFinished") } }
+    /// Whether Transfer finished plays the alert sound. Low space is always silent.
+    var notificationSound: Bool { didSet { save(notificationSound, "notificationSound") } }
 
     @ObservationIgnored private let defaults: UserDefaults
 
@@ -59,6 +61,7 @@ final class Preferences {
         defaults.register(defaults: [
             "activityDuringTransfers": true,
             "activityTrace": true,
+            "notificationSound": true,
             "volumesShown": [VolumeKind.external, .diskImage, .internal, .network].map(\.rawValue),
         ])
         menuBarStyle = Self.load(defaults, "menuBarStyle", .icon)
@@ -72,6 +75,7 @@ final class Preferences {
         accent = Self.load(defaults, "accent", .phosphor)
         notifyLowSpace = defaults.bool(forKey: "notifyLowSpace")
         notifyTransferFinished = defaults.bool(forKey: "notifyTransferFinished")
+        notificationSound = defaults.bool(forKey: "notificationSound")
     }
 
     /// The pinned volume if it's mounted, else nil; the default when none is chosen.
@@ -93,6 +97,7 @@ final class Preferences {
             "hide without external \(hideWhenNoExternal ? "on" : "off")",
             "notify low space \(notifyLowSpace ? "on" : "off")",
             "notify transfer finished \(notifyTransferFinished ? "on" : "off")",
+            "notification sound \(notificationSound ? "on" : "off")",
         ]
     }
 

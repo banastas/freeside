@@ -166,7 +166,7 @@ Popover views exist only while the popover is open.
 ### 6.5 Notifications (opt-in)
 
 - **Low space**: a volume crosses the low-space threshold. Once per crossing, with hysteresis so it doesn't repeat: it re-arms only when free space is 10 % above the threshold. A volume that is already low when first seen (at launch, on mount, or after the threshold changes) isn't a crossing. Only volumes in "Volumes shown" count. No sound.
-- **Transfer finished**: write activity on a device drops to near zero after a sustained transfer of at least 1 GB. Useful when you walk away from a card offload, so it must fire while the display is asleep (§7.3). A write starts when an external drive's write rate goes over 1 MB/s and ends once it has stayed below for 10 s; the bytes written in between must reach 1 GB. Disk images are left out, since their writes also land on the drive holding the file. With a sound. Because idle checks run every 5 s, it arrives 10–15 s after the copy ends.
+- **Transfer finished**: write activity on a device drops to near zero after a sustained transfer of at least 1 GB. Useful when you walk away from a card offload, so it must fire while the display is asleep (§7.3). A write starts when an external drive's write rate goes over 1 MB/s and ends once it has stayed below for 10 s; the bytes written in between must reach 1 GB. Disk images are left out, since their writes also land on the drive holding the file. With a sound, unless "play a sound" is off. Because idle checks run every 5 s, it arrives 10–15 s after the copy ends.
 
 The low-space watch runs whether or not the notification is on, so turning it on doesn't announce volumes that were already low. Verified in M6 with `FREESIDE_LOG_NOTIFICATIONS=1`, which prints each notification as it's posted: a 200 MB image filled past 10 %, and a 2.1 GB write to a USB SSD (reported about 15 s after it ended). Not yet seen in Notification Center, since the debug build hasn't been granted permission.
 
@@ -188,6 +188,7 @@ Shown in the popover (an inline settings panel, as in flatline), stored in `User
 | Units (space and rates) | decimal (GB, MB/s, like Finder), binary (GiB, MiB/s) | decimal |
 | Low-space threshold | 5 %, 10 %, 20 %, or a fixed amount in GB | 10 % |
 | Notifications | Low space, Transfer finished | off |
+| Notification sound | Transfer finished plays the alert sound; Low space is always silent (added 2026-11-04) | on |
 | Hide when no external drives | on / off | off |
 | Accent color | phosphor green, cyan, magenta, amber, system | phosphor green |
 | Launch at login | on / off (`SMAppService.mainApp`) | off, with a prompt on first run |
