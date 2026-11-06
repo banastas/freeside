@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.0.2 (2026-11-05)
+
+- A new app icon, in the look it now shares with the other banast.as apps
+
 ## 1.0.1 (2026-11-04)
 
 - Settings → Notifications has "play a sound" to silence the Transfer finished alert. It's on by default; Low space was already silent.

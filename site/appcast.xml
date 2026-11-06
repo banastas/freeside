@@ -3,6 +3,26 @@
     <channel>
         <title>freeside</title>
         <item>
+            <title>1.0.2</title>
+            <pubDate>Thu, 05 Nov 2026 22:14:15 -0800</pubDate>
+            <link>https://freeside.banast.as</link>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>1.0.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>27.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[<ul>
+  <li>A new app icon, in the look it now shares with the other banast.as apps</li>
+</ul>
+]]></description>
+            <enclosure url="https://freeside.banast.as/releases/freeside-1.0.2.dmg" length="3891590" type="application/octet-stream" sparkle:edSignature="OpNrW5Mcm/AnneG+HkEwZrhPmTUXV7C/gb0y0QpXTkbat8R+JyDTQ4RHh+BD9NzEN0qxYkEfyOsMrkeGRQPYBg=="/>
+            <sparkle:deltas>
+                <enclosure url="https://freeside.banast.as/releases/freeside7-6.delta" sparkle:deltaFrom="6" length="2203498" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="kmg7OmtNek0ZObOnIVWuFvQ9fZMhOQzdIqtJmgBVk5uVOHxwyWq3/HU7NNvrlgygE/19GdVc3FYj3/O6CvNOCw=="/>
+                <enclosure url="https://freeside.banast.as/releases/freeside7-5.delta" sparkle:deltaFrom="5" length="2247830" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="2BcbpXX6UccmJZncD6PUaBDPf8vHUa03z6ZvKD+UqifM+8H4Bv93UGhNkIJhwr0kNtPXaX1PDAf/+aaXHANEAA=="/>
+                <enclosure url="https://freeside.banast.as/releases/freeside7-4.delta" sparkle:deltaFrom="4" length="2270098" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="D3+QFoOry7mM115PPrrf1nUfhlochqBicS8/C1h2/uabcyGGtX5Ttw0ZwRjAN8qsxzz/N6LXpIi6GWjI4f4gCg=="/>
+                <enclosure url="https://freeside.banast.as/releases/freeside7-3.delta" sparkle:deltaFrom="3" length="2274154" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="erKTiiT9K8Xxk6ZnIaEpWngUcXVYihRUAQG+GdpSHGboJXFIxLXyFNMTli0p7TK8pL93BQUqVGl6UzHkMoIbCg=="/>
+                <enclosure url="https://freeside.banast.as/releases/freeside7-2.delta" sparkle:deltaFrom="2" length="2324826" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="Fd3lWrVQMY20dDZK77J8bzHv3tmg9vnjyYKsC/X6mVj0EDLOQ8XEJmlwr62xS7N4U3sN6qhT2y2wq2PDwLhLBA=="/>
+            </sparkle:deltas>
+        </item>
+        <item>
             <title>1.0.1</title>
             <pubDate>Wed, 04 Nov 2026 18:32:07 -0800</pubDate>
             <link>https://freeside.banast.as</link>
@@ -40,24 +60,6 @@
                 <enclosure url="https://freeside.banast.as/releases/freeside5-3.delta" sparkle:deltaFrom="3" length="78586" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="wnWHrxTT5oBez3vI958BLyqGB8pOV849tAcvdqpzqQRDPZx17efzB5DDzskXfp8x3swii898QVczIY4qZcgzDQ=="/>
                 <enclosure url="https://freeside.banast.as/releases/freeside5-2.delta" sparkle:deltaFrom="2" length="1255810" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="beEnB614AHSkxYkboj+2oP7/IxsncIIusGVMPumn2P+tGtr2U8Jy7aSf7emxFYiJvG0eyNFEXhYE0NvfD3tEAw=="/>
                 <enclosure url="https://freeside.banast.as/releases/freeside5-1.delta" sparkle:deltaFrom="1" length="1256162" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="FQXmSuglBbIWtL4f57TJfypjN3gcL6yxkT5p3FaT5KSto8NairA9LmycI86kQ6TseQ96bs9wYKAs0VSCwVaSCg=="/>
-            </sparkle:deltas>
-        </item>
-        <item>
-            <title>0.2.1</title>
-            <pubDate>Wed, 28 Oct 2026 19:10:55 -0700</pubDate>
-            <link>https://freeside.banast.as</link>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.2.1</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>27.0</sparkle:minimumSystemVersion>
-            <description><![CDATA[<ul>
-  <li>The menu bar item takes less room in the Icon and Space styles: 44 and 48 pt instead of 76 pt. During a transfer, the Icon and Space styles show the rates without the trace; the Activity styles keep it.</li>
-</ul>
-]]></description>
-            <enclosure url="https://freeside.banast.as/releases/freeside-0.2.1.dmg" length="3523329" type="application/octet-stream" sparkle:edSignature="fx3wCrGeW5FVISMmp/cUGa7fR+/9TwNl+aIMTepTzr+8iLXeSwGNvfR6LTJgGQ/DcabF4XyTkLVsf68wdR4BDg=="/>
-            <sparkle:deltas>
-                <enclosure url="https://freeside.banast.as/releases/freeside4-3.delta" sparkle:deltaFrom="3" length="48958" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="GNBULznEoTPGjd3Gcfp/p2DtSSWvx/HSC6ddT6OJ9BfbMTWp/hUmzWnsDuBDGmbAwtKUyTJgPnhQew1thppXCg=="/>
-                <enclosure url="https://freeside.banast.as/releases/freeside4-2.delta" sparkle:deltaFrom="2" length="1247390" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="olxfQCeAvaBX3OVDaCqH6qqIsbdmcvQLVK9sHQKnL1PI/e8898RQ7abvtomxrFnxXO1FES3PCOplOVl2DyHKDg=="/>
-                <enclosure url="https://freeside.banast.as/releases/freeside4-1.delta" sparkle:deltaFrom="1" length="1246262" type="application/octet-stream" sparkle:deltaFromSparkleExecutableSize="976464" sparkle:deltaFromSparkleLocales="de,he,ar,el,ja,fa,uk" sparkle:edSignature="PNJYk1yq8ej4lFu2r46yYhoNF0kBHs+XZ1/MYdfJz4LZCutfJGceu6mJe3RK7z0VrsOyn+4YS8f09Mn71UVkCg=="/>
             </sparkle:deltas>
         </item>
     </channel>
